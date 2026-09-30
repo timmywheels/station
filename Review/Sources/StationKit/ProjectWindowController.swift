@@ -293,6 +293,21 @@ final class ProjectWindowController: NSWindowController, NSWindowDelegate {
     }
 
     @objc func showComments(_ sender: Any?) { showRight(.comments) }
+
+    /// ⌘F: the filter of what's on screen. Review: the file tree's, then (again) the comments'.
+    @objc func focusFilter(_ sender: Any?) {
+        switch mode {
+        case .agents, .pullRequests: StationHost.focusFilter?(mode)
+        case .review:
+            if sidebar.filterFocused {
+                showRight(.comments)
+                commentsPanel.focusFilter()
+            } else {
+                if let side = reviewSplit?.splitViewItems.first, side.isCollapsed { side.animator().isCollapsed = false }
+                sidebar.focusFilter()
+            }
+        }
+    }
     @objc func showPullRequests(_ sender: Any?) { showRight(.pullRequests) }
 
     /// Open the right-hand panel on a tab.

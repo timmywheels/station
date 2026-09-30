@@ -212,6 +212,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     @objc func showComments(_ sender: Any?) { front?.showComments(sender) }
     @objc func showAgents(_ sender: Any?) { front?.showAgents(sender) }
     @objc func goBack(_ sender: Any?) { Navigator.back() }
+    @objc func focusFilter(_ sender: Any?) { front?.focusFilter(sender) }
     @objc func goForward(_ sender: Any?) { Navigator.forward() }
     @objc func showPullRequestsMode(_ sender: Any?) { front?.showPullRequestsMode(sender) }
     @objc func showReview(_ sender: Any?) { front?.showReview(sender) }
@@ -433,6 +434,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         viewMenu.addItem(withTitle: "Pull Requests", action: #selector(showPullRequestsMode(_:)), keyEquivalent: "2")
         viewMenu.addItem(withTitle: "Review", action: #selector(showReview(_:)), keyEquivalent: "3")
         viewMenu.addItem(.separator())
+        viewMenu.addItem(withTitle: "Filter", action: #selector(focusFilter(_:)), keyEquivalent: "f")
         viewMenu.addItem(withTitle: "Back", action: #selector(goBack(_:)), keyEquivalent: "[")
         viewMenu.addItem(withTitle: "Forward", action: #selector(goForward(_:)), keyEquivalent: "]")
         viewMenu.addItem(.separator())

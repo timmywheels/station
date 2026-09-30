@@ -349,6 +349,7 @@ struct SearchField: View {
         // Focus after the field is in the hierarchy; the footer button would otherwise keep it.
         .onAppear { Task { @MainActor in try? await Task.sleep(for: .milliseconds(60)); focused = true } }
         .onChange(of: model.isSearching) { _, on in if on { Task { @MainActor in try? await Task.sleep(for: .milliseconds(60)); focused = true } } }
+        .onChange(of: FilterFocus.shared.pullRequests) { focused = true } // ⌘F on the Pull Requests tab
     }
 }
 

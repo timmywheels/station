@@ -24,6 +24,9 @@ enum StationMenuBar {
         AgentIndex.shared.start()
         PerfMark.mark("catalog")
         StationHost.selectAgent = { AgentsSelection.shared.id = $0 }
+        StationHost.focusFilter = { mode in
+            if mode == .agents { FilterFocus.shared.agents += 1 } else { FilterFocus.shared.pullRequests += 1 }
+        }
         StationHost.currentAgent = { AgentsSelection.shared.id }
         // The main window's Agents and Pull Requests tabs (Review is StationKit's own).
         StationHost.makeModeView = { mode -> NSViewController in
@@ -79,6 +82,25 @@ enum StationMenuBar {
                     FileHandle.standardError.write("[selftest] \u{201C}\(q)\u{201D} → \(hits.count): \(hits.prefix(2).map(\.title)) chips \(AgentFilter.suggestions(for: q, sessions: all).prefix(4))\n".data(using: .utf8)!)
                 }
                 FileHandle.standardError.write("[selftest] ready\n".data(using: .utf8)!)
+            }
+        }
+        if ProcessInfo.processInfo.environment["STATION_SELFTEST"] == "filterfocus" { // ⌘F on each tab
+            StationHost.openProject(ProcessInfo.processInfo.environment["STATION_SELFTEST_REPO"] ?? FileManager.default.currentDirectoryPath)
+            let steps: [(String, StationMode)] = [("agents", .agents), ("prs", .pullRequests), ("review", .review), ("review again", .review)]
+            for (i, step) in steps.enumerated() {
+                DispatchQueue.main.asyncAfter(deadline: .now() + 5 + Double(i) * 2) {
+                    if step.0 != "review again" { StationHost.show(step.1) }
+                    StationHost.frontWindow?.makeKey()
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                        NSApp.sendAction(Selector(("focusFilter:")), to: nil, from: nil)
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                            let r = StationHost.frontWindow?.firstResponder
+                            let field = (r as? NSText)?.delegate as? NSTextField
+                            FileHandle.standardError.write("[selftest] ⌘F on \(step.0) → \(field.map { "\(type(of: $0)) “\($0.placeholderString ?? "")”" } ?? String(describing: r.map { type(of: $0) }))\n".data(using: .utf8)!)
+                            if i == steps.count - 1 { FileHandle.standardError.write("[selftest] ready\n".data(using: .utf8)!) }
+                        }
+                    }
+                }
             }
         }
         if ProcessInfo.processInfo.environment["STATION_SELFTEST"] == "nav" { // links and the way back

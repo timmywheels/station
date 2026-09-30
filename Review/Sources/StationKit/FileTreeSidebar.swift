@@ -143,6 +143,8 @@ final class FileTreeSidebar: NSViewController, NSSearchFieldDelegate {
 
     /// Type to narrow the tree.
     func focusFilter() { view.window?.makeFirstResponder(filterField) }
+    /// The filter has the keyboard (its field editor does).
+    var filterFocused: Bool { (view.window?.firstResponder as? NSText)?.delegate as? NSSearchField === filterField }
 
     /// Self-tests: filter as if typed.
     func setFilterForTests(_ text: String) { filterField.stringValue = text; controlTextDidChange(Notification(name: NSControl.textDidChangeNotification)) }

@@ -371,6 +371,7 @@ private final class ClosureMenuItem: NSMenuItem {
 
 extension CommentsPanel {
     func controlTextDidChange(_ obj: Notification) { rebuild() }
+    func focusFilter() { view.window?.makeFirstResponder(search) }
     /// Self-tests: filter as if typed.
     func setFilterForTests(_ text: String) { search.stringValue = text; rebuild() }
 }

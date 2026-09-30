@@ -98,6 +98,7 @@ struct AgentSession: Identifiable, Equatable {
 struct AgentsView: View {
     /// Shared, so links (Navigator: station://agents/<id>) can pick the session shown.
     @Bindable private var picked = AgentsSelection.shared
+    @FocusState private var filterFocused: Bool
     private var selection: String? { get { picked.id } nonmutating set { picked.id = newValue } }
     @State private var search = ""
     @AppStorage("agents.showBackground") private var showBackground = false
@@ -169,6 +170,9 @@ struct AgentsView: View {
             chip("\(count(.idle)) idle", .green, on: count(.idle) > 0, token: "is:idle")
             Spacer()
             TextField("Filter: words, is:running, repo:, branch:, pr:, model:", text: $search).textFieldStyle(.roundedBorder).frame(maxWidth: 280)
+                .focused($filterFocused)
+                .onChange(of: FilterFocus.shared.agents) { filterFocused = true }
+                .help("⌘F")
         }
         .padding(.horizontal, 14)
         .padding(.vertical, 10)
@@ -350,6 +354,15 @@ private struct SessionDetail: View {
             Text(text).font(.callout).textSelection(.enabled).fixedSize(horizontal: false, vertical: true)
         }
     }
+}
+
+/// ⌘F asks a tab's filter for the keyboard: each request bumps its counter.
+@MainActor
+@Observable
+final class FilterFocus {
+    static let shared = FilterFocus()
+    var agents = 0
+    var pullRequests = 0
 }
 
 /// Which session the Agents tab shows. Links set it; the tab's list follows.

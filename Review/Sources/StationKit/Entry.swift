@@ -30,6 +30,9 @@ public enum StationHost {
     /// Sessions for ⌘K: id, title, a line under it, extra text to match, and whether it's live.
     @MainActor public static var paletteAgents: (() -> [(id: String, title: String, subtitle: String, search: String, live: Bool)])?
 
+    /// ⌘F on the host's tabs (Agents, Pull Requests): focus their filter.
+    @MainActor public static var focusFilter: ((StationMode) -> Void)?
+
     /// The Agents tab's selection: the host shows that session / reports the one shown.
     @MainActor public static var selectAgent: ((String) -> Void)?
     @MainActor public static var currentAgent: (() -> String?)?
