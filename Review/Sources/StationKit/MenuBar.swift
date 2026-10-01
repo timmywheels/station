@@ -191,6 +191,15 @@ final class MenuBarItem: NSObject, NSMenuDelegate {
             read.toolTip = "Replies waiting on you and finished reviews: seen. A new reply brings the dot back."
         }
         menu.addItem(.separator())
+        addRecentItem(to: menu)
+        let dock = menu.addItem(withTitle: "Hide Dock Icon", action: #selector(toggleDock), keyEquivalent: "")
+        dock.target = self
+        dock.state = Style.shared.settings.dockIcon ? .off : .on
+        dock.toolTip = "Menu bar only. While the Dock icon is hidden, open windows from here; the app menus (File, Edit…) aren't shown."
+    }
+
+    /// Open Recent ▸ your projects.
+    func addRecentItem(to menu: NSMenu) {
         let recent = menu.addItem(withTitle: "Open Recent", action: nil, keyEquivalent: "")
         let sub = NSMenu()
         for root in RecentProjects.list {
@@ -201,10 +210,6 @@ final class MenuBarItem: NSObject, NSMenuDelegate {
         }
         recent.submenu = sub
         recent.isEnabled = !sub.items.isEmpty
-        let dock = menu.addItem(withTitle: "Hide Dock Icon", action: #selector(toggleDock), keyEquivalent: "")
-        dock.target = self
-        dock.state = Style.shared.settings.dockIcon ? .off : .on
-        dock.toolTip = "Menu bar only. While the Dock icon is hidden, open windows from here; the app menus (File, Edit…) aren't shown."
     }
 
     /// Finished reviews from before this are seen (Mark All as Read).

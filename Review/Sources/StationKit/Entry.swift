@@ -91,6 +91,8 @@ public enum StationHost {
     /// Your agents per project, replies waiting on you, Open Recent and Hide Dock Icon: the menu
     /// Station's own menu bar icon had, for the host's menu.
     @MainActor public static func addAgentItems(to menu: NSMenu) { MenuBarItem.shared.addAgentItems(to: menu) }
+    /// Open Recent ▸ your projects, for the host's menu.
+    @MainActor public static func addRecentItem(to menu: NSMenu) { MenuBarItem.shared.addRecentItem(to: menu) }
 
     /// `station comments|reply|resolve|…` runs the agent CLI and exits; `station [repo]` (or a
     /// plain launch) starts the app. Never returns.

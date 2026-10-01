@@ -1,7 +1,6 @@
 import AppKit
 import StationKit
 import OSLog
-import ServiceManagement
 import SwiftUI
 import StoplightCore
 
@@ -127,30 +126,16 @@ final class StatusPanelController: NSObject, NSWindowDelegate {
             return item
         }
 
-        // Your review agents and projects (what Station's own menu bar icon used to show).
-        StationHost.addAgentItems(to: menu)
-        for item in menu.items where item.image == nil && !item.isSeparatorItem { item.image = NSImage(size: NSSize(width: 16, height: 16)) } // keep the icon column even
-        menu.addItem(.separator())
-        _ = add("Refresh Now", "arrow.clockwise", #selector(refreshNow), key: "r")
+        // Short on purpose: agents live in Agents, the pin and search in the panel, the rest in Settings.
+        _ = add("Agents…", "person.2.wave.2", #selector(showAgents))
+        StationHost.addRecentItem(to: menu)
+        menu.items.last?.image = NSImage(systemSymbolName: "clock", accessibilityDescription: nil)
         _ = add("Watch a PR by URL…", "eye", #selector(watchPR), key: "n")
 
         menu.addItem(.separator())
-        let pin = add("Keep Panel Open", "pin", #selector(togglePin))
-        pin.state = model.pinnedPanel ? .on : .off
-        let home = add("Bring Panel to the Menu Bar", "arrow.up.left.square", #selector(bringHome))
-        home.isEnabled = panel?.isVisible == true
-        _ = add("Reset Panel Size and Position", "arrow.counterclockwise", #selector(resetPanel))
-
-        menu.addItem(.separator())
-        _ = add("Keyboard Shortcuts", "keyboard", #selector(showHotkeys), key: "/")
-        _ = add("Guided Tour", "questionmark.circle", #selector(showTour))
         _ = add("Settings…", "gearshape", #selector(openSettings), key: ",")
-
-        menu.addItem(.separator())
-        _ = add("Agents…", "person.2.wave.2", #selector(showAgents))
-        _ = add("Bring Over Onramp and Stoplight…", "square.and.arrow.down", #selector(bringOver))
-        let login = add("Open at Login", "power", #selector(toggleLogin))
-        login.state = SMAppService.mainApp.status == .enabled ? .on : .off
+        _ = add("Keyboard Shortcuts", "keyboard", #selector(showHotkeys), key: "/")
+        _ = add("Reset Panel Position", "arrow.counterclockwise", #selector(resetPanel))
 
         menu.addItem(.separator())
         _ = add("Quit Station", "xmark.circle", #selector(quit), key: "q")
@@ -159,16 +144,6 @@ final class StatusPanelController: NSObject, NSWindowDelegate {
         statusItem.menu = menu
         statusItem.button?.performClick(nil)
         statusItem.menu = nil
-    }
-
-    @objc private func showTour() {
-        model.prefs.tourSeen = false
-        open()
-    }
-
-    @objc private func togglePin() {
-        model.pinnedPanel.toggle()
-        if model.pinnedPanel { open() }
     }
 
     /// Back under the dots at the default size, unpinned.
@@ -182,10 +157,6 @@ final class StatusPanelController: NSObject, NSWindowDelegate {
             position(panel)
         }
         open()
-    }
-
-    @objc private func refreshNow() {
-        Task { await model.refresh() }
     }
 
     @objc private func watchPR() {
@@ -203,17 +174,7 @@ final class StatusPanelController: NSObject, NSWindowDelegate {
         NSApp.activate()
     }
 
-    @objc private func toggleLogin() {
-        do {
-            if SMAppService.mainApp.status == .enabled { try SMAppService.mainApp.unregister() }
-            else { try SMAppService.mainApp.register() }
-        } catch {
-            NSSound.beep()
-        }
-    }
-
     @objc private func quit() { NSApp.terminate(nil) }
-    @objc private func bringOver() { Migration.offer() }
     @objc private func showAgents() { AgentsWindow.present() }
 
     // MARK: Glyph
