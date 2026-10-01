@@ -48,14 +48,12 @@ final class ProjectWindowController: NSWindowController, NSWindowDelegate {
         toolbar.onOpenRepo = { [weak self] path in self?.open(repo: path) }
         toolbar.onToggleComments = { [weak self] in self?.toggleComments(nil) }
         toolbar.onToggleFiles = { [weak self] in self?.reviewSplit?.toggleSidebar(nil) }
-        toolbar.onOpenContext = { [weak self] in self?.openContext(nil) }
         toolbar.onOpenPullRequest = { [weak self] in self?.openPullRequest(nil) }
         toolbar.onMode = { [weak self] m in self?.go(m) }
         toolbar.onViewPullRequest = { [weak self] n in
             guard let self else { return }
             (NSApp.delegate as? AppDelegate)?.viewPullRequest(n, repo: self.repoPath) { _ in }
         }
-        toolbar.setContextCount(ContextWindowController.enabledCount(repo: repoPath))
         toolbar.install(in: window)
         RecentProjects.add(repoPath)
 
@@ -152,7 +150,6 @@ final class ProjectWindowController: NSWindowController, NSWindowDelegate {
         toolbar.review = reviewView
         contextWindow?.close()
         contextWindow = nil // per repo
-        toolbar.setContextCount(ContextWindowController.enabledCount(repo: path))
         reviewView.reload()
     }
 
@@ -306,7 +303,6 @@ final class ProjectWindowController: NSWindowController, NSWindowDelegate {
     @objc func openContext(_ sender: Any?) {
         if contextWindow == nil {
             let c = ContextWindowController(repo: repoPath)
-            c.onChange = { [weak self] n in self?.toolbar.setContextCount(n) }
             contextWindow = c
         }
         contextWindow?.showWindow(nil)

@@ -9,7 +9,6 @@ final class SourceToolbar: NSObject, NSToolbarDelegate, NSMenuDelegate {
     private static let projectID = NSToolbarItem.Identifier("station.project")
     private static let changesID = NSToolbarItem.Identifier("station.changes")
     private static let commentsID = NSToolbarItem.Identifier("station.comments")
-    private static let contextID = NSToolbarItem.Identifier("station.context")
     private static let leftToggleID = NSToolbarItem.Identifier("station.toggleFiles")
     private static let modeID = NSToolbarItem.Identifier("station.mode")
     /// Agents · Pull Requests · Review, centred: which surface the window shows.
@@ -20,9 +19,6 @@ final class SourceToolbar: NSObject, NSToolbarDelegate, NSMenuDelegate {
     private var reviewItems: [NSView] { [leftToggle, projectButton, changesButton, commentsButton] }
     private let leftToggle = CapsuleButton()
     var onToggleFiles: (() -> Void)?
-    private let contextButton = CapsuleButton()
-    private lazy var contextWidth = contextButton.widthAnchor.constraint(equalToConstant: 32)
-    var onOpenContext: (() -> Void)?
     private let commentsButton = CapsuleButton()
     private lazy var commentsWidth = commentsButton.widthAnchor.constraint(equalToConstant: 32)
     var onToggleComments: (() -> Void)?
@@ -43,11 +39,6 @@ final class SourceToolbar: NSObject, NSToolbarDelegate, NSMenuDelegate {
             button.pickerMenu.delegate = self
             button.maxWidth = width
         }
-        contextButton.target = self
-        contextButton.action = #selector(contextClicked)
-        contextButton.horizontalPadding = 9
-        contextButton.toolTip = "Review context: files agents read before working on your comments (⌥⌘K)"
-        setContextCount(0)
         modeModel.onSelect = { [weak self] m in self?.onMode?(m) }
         leftToggle.target = self
         leftToggle.action = #selector(leftClicked)
@@ -63,7 +54,7 @@ final class SourceToolbar: NSObject, NSToolbarDelegate, NSMenuDelegate {
         commentsButton.target = self
         commentsButton.action = #selector(commentsClicked)
         commentsButton.horizontalPadding = 9
-        commentsButton.toolTip = "Show or hide comments and pull requests (⌥⌘0)"
+        commentsButton.toolTip = "Show or hide comments (⌥⌘0)"
         setCommentCount(0)
         projectButton.toolTip = "Project or worktree (⌘O opens another folder)"
         changesButton.toolTip = "What to review: the whole branch, uncommitted changes, or one commit"
@@ -84,22 +75,6 @@ final class SourceToolbar: NSObject, NSToolbarDelegate, NSMenuDelegate {
     func setMode(_ m: StationMode) {
         modeModel.selected = m
         for v in reviewItems { v.isHidden = m != .review }
-    }
-    @objc private func contextClicked() { onOpenContext?() }
-
-    /// The context button: a book icon, plus how many sources are on.
-    func setContextCount(_ n: Int) {
-        let s = NSMutableAttributedString()
-        if let icon = PickerButton.padded("books.vertical", left: 0, right: n > 0 ? 5 : 0, color: .secondaryLabelColor) {
-            let a = NSTextAttachment()
-            a.image = icon
-            a.bounds = NSRect(x: 0, y: -2, width: icon.size.width, height: icon.size.height)
-            s.append(NSAttributedString(attachment: a))
-        }
-        if n > 0 { s.append(NSAttributedString(string: "\(n)", attributes: [.font: NSFont.monospacedDigitSystemFont(ofSize: 11, weight: .medium)])) }
-        contextButton.attributedTitle = s
-        contextWidth.constant = ceil(contextButton.cell!.cellSize.width) + 2 * contextButton.horizontalPadding
-        contextWidth.isActive = true
     }
 
     /// The comments button: an icon, plus the open count when there is one.
@@ -171,9 +146,6 @@ final class SourceToolbar: NSObject, NSToolbarDelegate, NSMenuDelegate {
             item.view = projectButton
         } else if id == Self.changesID {
             item.view = changesButton
-        } else if id == Self.contextID {
-            contextButton.heightAnchor.constraint(equalToConstant: CapsuleButton.height).isActive = true
-            item.view = contextButton
         } else {
             // The toolbar leaves 8pt at the window's right edge; pad to 14 so the
             // gap there matches the gap above the pill.
