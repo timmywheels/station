@@ -475,6 +475,8 @@ struct PRRow: View {
     var depth: Int = 0
     /// All rows of this PR's stack, bottom-up. nil when not stacked.
     var stack: [StackRow]? = nil
+    /// The Pull Requests tab: ⌘- or ⇧-click picks rows (your own open PRs) to close together.
+    var multiSelect = false
     @Environment(\.openURL) private var openURL
     @Environment(\.colorProfile) private var colorProfile
     @State private var hovering = false
@@ -502,7 +504,7 @@ struct PRRow: View {
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .clipped()
-        .background(selected ? AnyShapeStyle(Color.accentColor.opacity(0.18))
+        .background(selected || model.picked.contains(pr.id) ? AnyShapeStyle(Color.accentColor.opacity(0.18))
                     : hovering || expanded ? AnyShapeStyle(.quaternary.opacity(0.5)) : AnyShapeStyle(.clear))
         .id(pr.id)
         .onHover { hovering = $0 }
@@ -631,6 +633,11 @@ struct PRRow: View {
             TapGesture(count: 2).onEnded { model.selectedID = pr.id; secondaryClick() }
                 .exclusively(before: TapGesture().onEnded {
                     guard !editingAlias else { return }
+                    if multiSelect {
+                        let mods = NSEvent.modifierFlags
+                        if mods.contains(.command) || mods.contains(.shift) { return model.togglePicked(pr) }
+                        model.picked = []
+                    }
                     model.selectedID = pr.id
                     if NSEvent.modifierFlags.contains(.command) { secondaryClick() } else { primaryClick() }
                 })

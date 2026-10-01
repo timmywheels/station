@@ -215,6 +215,20 @@ public struct GitHubProvider: CIProvider {
         return login
     }
 
+    /// Close a pull request without merging it (REST: PATCH /repos/{repo}/pulls/{number}).
+    public func closePullRequest(repo: String, number: Int) async throws {
+        var req = URLRequest(url: URL(string: "https://api.github.com/repos/\(repo)/pulls/\(number)")!)
+        req.httpMethod = "PATCH"
+        req.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        req.setValue("application/vnd.github+json", forHTTPHeaderField: "Accept")
+        req.setValue("Station/0.1", forHTTPHeaderField: "User-Agent")
+        req.httpBody = try JSONSerialization.data(withJSONObject: ["state": "closed"])
+        let (_, resp) = try await session.data(for: req)
+        guard let http = resp as? HTTPURLResponse else { throw Error.http(-1) }
+        if http.statusCode == 401 { throw Error.unauthorized }
+        guard (200..<300).contains(http.statusCode) else { throw Error.http(http.statusCode) }
+    }
+
     // MARK: - Transport
 
     private func post(_ body: [String: Any]) async throws -> Data {

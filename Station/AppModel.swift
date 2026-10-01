@@ -102,6 +102,29 @@ final class AppModel {
 
     /// Keyboard selection. Session-only. Nil until the user touches the arrow keys.
     var selectedID: String?
+    /// The Pull Requests tab's multi-selection (⌘- or ⇧-click): your own open PRs, to close together.
+    var picked: Set<String> = []
+    /// Only your own open PRs can be picked: they're the only ones you can close.
+    func canPick(_ pr: PullRequest) -> Bool {
+        isMine(pr) && pr.status == .open && !pr.isBranch && !pr.id.hasPrefix("queue:")
+    }
+    func togglePicked(_ pr: PullRequest) {
+        guard canPick(pr) else { NSSound.beep(); return }
+        if picked.contains(pr.id) { picked.remove(pr.id) } else { picked.insert(pr.id) }
+    }
+    /// Close every picked PR on GitHub, then refresh. Returns what failed, as "repo#n: reason".
+    func closePicked() async -> [String] {
+        guard let provider else { return ["Not signed in to GitHub"] }
+        let prs = all.filter { picked.contains($0.id) && canPick($0) }
+        var failed: [String] = []
+        for pr in prs {
+            do { try await provider.closePullRequest(repo: pr.repo, number: pr.number) }
+            catch { failed.append("\(pr.shortRef): \(error.localizedDescription)") }
+        }
+        picked = []
+        await refresh()
+        return failed
+    }
     var showHotkeys = false
     /// Tab focus inside the expanded row: index into its button row. nil = none.
     var focusedButton: Int?
