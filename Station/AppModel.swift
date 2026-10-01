@@ -825,6 +825,14 @@ final class AppModel {
     var agentsNeedingYou: Int {
         AgentBoard.shared.needsYou + agentStatus.values.filter { $0.state == "attention" }.count + (reviewAgentsNeedYou ? 1 : 0)
     }
+    /// The menu bar's agent light, when Settings → Display turns it on; nil keeps the three dots alone.
+    var agentLight: StatusGlyph.AgentLight? {
+        guard prefs.agentLight else { return nil }
+        let needs = agentsNeedingYou
+        if needs > 0 { return .needsYou(needs) }
+        let working = AgentBoard.shared.agents.contains { $0.state == .working } || agentStatus.values.contains { $0.state == "working" }
+        return working ? .working : .idle
+    }
     private var lastLaunch: [String: Date] = [:]
 
     /// One button: worktree + terminal + agent with the failure as the prompt.

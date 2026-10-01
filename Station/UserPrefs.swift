@@ -100,6 +100,7 @@ final class UserPrefs {
         static let rowActionsSeen = "rowActionsSeen"
         static let rowActionsTrimmed = "rowActionsTrimmed"
         static let compactRows = "compactRows"
+        static let agentLight = "agentLight"
         static let sectionCounts = "sectionCounts"
         static let agent = "agent"
         static let agentCustom = "agentCustomCommand"
@@ -212,6 +213,8 @@ final class UserPrefs {
 
     /// A row shows its status as a few glyphs (RowStatus) instead of tags. Local only.
     var compactRows: Bool { didSet { defaults.set(compactRows, forKey: Key.compactRows) } }
+    /// A fourth light in the menu bar, after a divider, for your agents. Off: the three dots alone. Local only.
+    var agentLight: Bool { didSet { defaults.set(agentLight, forKey: Key.agentLight) } }
 
     /// Which circular buttons an expanded row shows, in order (US-031). Local only.
     var rowActions: [RowAction] { didSet { defaults.set(rowActions.map(\.rawValue), forKey: Key.rowActions) } }
@@ -316,6 +319,7 @@ final class UserPrefs {
         }
         defaults.set(RowAction.allCases.map(\.rawValue), forKey: Key.rowActionsSeen)
         compactRows = defaults.object(forKey: Key.compactRows) as? Bool ?? true
+        agentLight = defaults.bool(forKey: Key.agentLight)
         sectionCounts = SectionCounts(rawValue: defaults.string(forKey: Key.sectionCounts) ?? "") ?? .off
         primaryClick = PrimaryClick(rawValue: defaults.string(forKey: Key.primaryClick) ?? "") ?? .review
         refreshRate = RefreshRate(rawValue: defaults.integer(forKey: Key.refreshSeconds)) ?? .automatic

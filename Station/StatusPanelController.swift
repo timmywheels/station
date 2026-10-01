@@ -184,7 +184,7 @@ final class StatusPanelController: NSObject, NSWindowDelegate {
         withObservationTracking {
             statusItem.button?.image = StatusGlyph.image(for: model.presence, count: model.badgeCount,
                                                          pop: model.bob, housing: model.prefs.housing,
-                                                         attention: model.agentsNeedingYou,
+                                                         agents: model.agentLight,
                                                          colorProfile: model.prefs.colorProfile)
             statusItem.button?.toolTip = statusItem.button?.image?.accessibilityDescription
         } onChange: { [weak self] in

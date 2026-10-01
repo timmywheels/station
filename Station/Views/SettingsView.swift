@@ -151,6 +151,10 @@ private struct DisplayTab: View {
                     InfoLabel("Dark housing behind the dots",
                               "Draws a rounded dark plate behind the three dots so they read against a light wallpaper.")
                 }
+                Toggle(isOn: $prefs.agentLight) {
+                    InfoLabel("Agent light",
+                              "A fourth dot after the three, for your agents: orange when one needs you, blue while one works. Off, the menu bar is plain Stoplight.")
+                }
                 Toggle(isOn: $prefs.showCount) {
                     InfoLabel("Show a count beside the dots",
                               "How many PRs are red or yellow right now. Same PRs the dots cover, drafts excluded, hidden at zero.")

@@ -10,18 +10,19 @@ enum StatusGlyph {
 
     static let housingPad: CGFloat = 4
 
+    /// The optional fourth light, after a divider: your agents. Off (nil) is plain Stoplight.
+    enum AgentLight: Equatable {
+        case idle, working, needsYou(Int)
+    }
+    static let dividerGap: CGFloat = 4
+
     /// - housing: draw a dark rounded pill behind the dots (🚥 style) for contrast on busy wallpapers.
-    /// - attention: how many agents are waiting on the user: a small orange marker for one, an
-    ///   orange pill with the number for more (US-034).
+    /// - agents: the agent light (Settings → Display), or nil for the three dots alone.
     static func image(for presence: StatusPresence, count: Int?, pop: CGFloat = 0, housing: Bool = false,
-                      attention: Int = 0, colorProfile: ColorProfile = .standard) -> NSImage {
-        let dotsWidth = dot * 3 + gap * 2
+                      agents: AgentLight? = nil, colorProfile: ColorProfile = .standard) -> NSImage {
         let pad: CGFloat = housing ? housingPad : 0
-        let number = attention > 1 ? NSAttributedString(string: attention > 9 ? "9+" : "\(attention)", attributes: [
-            .font: NSFont.monospacedDigitSystemFont(ofSize: 8, weight: .bold), .foregroundColor: NSColor.white,
-        ]) : nil
-        let pillWidth = number.map { max(10, ceil($0.size().width) + 5) } ?? 0
-        let width = dotsWidth + pad * 2 + (number != nil ? pillWidth - 2 : attention > 0 ? 4 : 0)
+        let agentWidth = agents == nil ? 0 : dividerGap * 2 + 1 + dot
+        let width = dot * 3 + gap * 2 + agentWidth + pad * 2
         let img = NSImage(size: NSSize(width: width, height: height), flipped: false) { _ in
             if housing {
                 let pill = NSRect(x: 0, y: (height - (dot + pad * 2)) / 2, width: width, height: dot + pad * 2)
@@ -34,34 +35,37 @@ enum StatusGlyph {
                 (presence.pending, colorProfile.nsColor(for: .pending), 0),
                 (presence.success, colorProfile.nsColor(for: .success), pop),
             ]
-            for (i, light) in lights.enumerated() {
-                let x = pad + CGFloat(i) * (dot + gap)
+            var x = pad
+            for light in lights {
                 let grow = light.on ? light.pop : 0
                 let rect = NSRect(x: x - grow / 2, y: (height - dot) / 2 - grow / 2, width: dot + grow, height: dot + grow)
-                let color = light.on ? light.color : dim
-                color.setFill()
+                (light.on ? light.color : dim).setFill()
                 NSBezierPath(ovalIn: rect).fill()
+                x += dot + gap
             }
-            if let number {
-                let rect = NSRect(x: width - pillWidth, y: height / 2 + dot / 2 - 2, width: pillWidth, height: 10)
-                NSColor.windowBackgroundColor.setFill()
-                NSBezierPath(roundedRect: rect.insetBy(dx: -0.8, dy: -0.8), xRadius: 5.8, yRadius: 5.8).fill()
-                NSColor.systemOrange.setFill()
-                NSBezierPath(roundedRect: rect, xRadius: 5, yRadius: 5).fill()
-                let size = number.size()
-                number.draw(at: NSPoint(x: rect.midX - size.width / 2, y: rect.midY - size.height / 2))
-            } else if attention > 0 {
-                let r: CGFloat = 3
-                let rect = NSRect(x: width - r * 2, y: height / 2 + dot / 2, width: r * 2, height: r * 2)
-                NSColor.windowBackgroundColor.setFill()
-                NSBezierPath(ovalIn: rect.insetBy(dx: -0.8, dy: -0.8)).fill()
-                NSColor.systemOrange.setFill()
-                NSBezierPath(ovalIn: rect).fill()
+            if let agents {
+                // A hairline, then the agent light: its own little section.
+                x += dividerGap - gap
+                dim.setFill()
+                NSRect(x: x, y: (height - dot - 2) / 2, width: 1, height: dot + 2).fill()
+                x += 1 + dividerGap
+                let color: NSColor = switch agents {
+                case .needsYou: .systemOrange
+                case .working: .systemBlue
+                case .idle: dim
+                }
+                color.setFill()
+                NSBezierPath(ovalIn: NSRect(x: x, y: (height - dot) / 2, width: dot, height: dot)).fill()
             }
             return true
         }
         img.isTemplate = false
-        img.accessibilityDescription = describe(presence) + (attention == 1 ? " · an agent needs you" : attention > 1 ? " · \(attention) agents need you" : "")
+        let agentWords: String = switch agents {
+        case .needsYou(let n)?: n == 1 ? " · an agent needs you" : " · \(n) agents need you"
+        case .working?: " · agents working"
+        case .idle?, nil: ""
+        }
+        img.accessibilityDescription = describe(presence) + agentWords
         guard let count else { return img }
         return withBadge(img, text: "\(count)")
     }
