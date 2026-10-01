@@ -4,9 +4,6 @@ import StoplightCore
 /// The main window's Pull Requests tab: the panel's sections, full width.
 struct PullRequestsPane: View {
     @Bindable var model: AppModel
-    @State private var confirmClose = false
-    @State private var closing = false
-    @State private var closeErrors: [String] = []
     private static let ago: RelativeDateTimeFormatter = { let f = RelativeDateTimeFormatter(); f.unitsStyle = .short; return f }()
 
     var body: some View {
@@ -27,7 +24,9 @@ struct PullRequestsPane: View {
             .padding(.horizontal, 16).padding(.vertical, 10)
             Divider()
             if case .signedIn = model.auth {
-                if model.sections.allSatisfy({ $0.prs.isEmpty }), let ref = model.searchedPullRequest {
+                if model.lastRefresh == nil {
+                    PRSkeleton().frame(maxWidth: .infinity, maxHeight: .infinity)
+                } else if model.sections.allSatisfy({ $0.prs.isEmpty }), let ref = model.searchedPullRequest {
                     UnlistedPullRequest(ref: ref, model: model).frame(maxWidth: .infinity, maxHeight: .infinity)
                 } else if model.sections.allSatisfy({ $0.prs.isEmpty }) {
                     Text(model.searchText.isEmpty ? "No open pull requests" : "No matches")
@@ -68,17 +67,6 @@ struct PullRequestsPane: View {
         .background(Color(nsColor: .windowBackgroundColor))
         .onAppear { model.refreshIfStale() }
         .onExitCommand { model.picked = [] }
-        .alert("Close \(model.picked.count) pull request\(model.picked.count == 1 ? "" : "s")?", isPresented: $confirmClose) {
-            Button("Close", role: .destructive) { close() }
-            Button("Cancel", role: .cancel) {}
-        } message: {
-            Text("They close on GitHub without merging. You can reopen them there.")
-        }
-        .alert("Some didn't close", isPresented: Binding(get: { !closeErrors.isEmpty }, set: { if !$0 { closeErrors = [] } })) {
-            Button("OK") { closeErrors = [] }
-        } message: {
-            Text(closeErrors.joined(separator: "\n"))
-        }
     }
 
     /// Shown while rows are picked: how many, Close, and Clear (Esc).
@@ -89,20 +77,13 @@ struct PullRequestsPane: View {
                 Text("\(model.picked.count) selected").foregroundStyle(.secondary)
                 Spacer()
                 Button("Clear") { model.picked = [] }.keyboardShortcut(.cancelAction)
-                Button(closing ? "Closing…" : "Close \(model.picked.count) Pull Request\(model.picked.count == 1 ? "" : "s")…") { confirmClose = true }
-                    .disabled(closing)
+                Button(model.closing ? "Closing…" : "Close \(model.picked.count) Pull Request\(model.picked.count == 1 ? "" : "s")…") {
+                    model.confirmAndClose(model.all.filter { model.picked.contains($0.id) })
+                }
+                .disabled(model.closing)
             }
             .padding(.horizontal, 16).padding(.vertical, 10)
         }
         .background(.bar)
-    }
-
-    private func close() {
-        closing = true
-        Task {
-            let failed = await model.closePicked()
-            closing = false
-            closeErrors = failed
-        }
     }
 }

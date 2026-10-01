@@ -121,7 +121,8 @@ struct MenuBarView: View {
             .padding(24)
         case .signedIn:
             if model.lastRefresh == nil && model.lastError == nil {
-                centered("Loading…")
+                PRSkeleton(caption: nil).frame(maxWidth: .infinity, maxHeight: .infinity)
+                    .onAppear { model.contentHeight = 240 }
             } else if model.isEmpty {
                 centered("No open PRs")
             } else if rowCount == 0, let ref = model.searchedPullRequest {
@@ -874,6 +875,11 @@ struct PRRow: View {
             Button("Copy stack (\(stack.count) PRs) as Markdown") {
                 copy(Stacks.markdown(stack, topFirst: model.prefs.stackOrder == .topFirst))
             }
+        }
+        let closing = model.closeTargets(for: pr)
+        if !closing.isEmpty {
+            Divider()
+            Button(closing.count == 1 ? "Close Pull Request…" : "Close \(closing.count) Pull Requests…") { model.confirmAndClose(closing) }
         }
     }
 

@@ -2,8 +2,10 @@ import AppKit
 
 /// Placeholder shapes with a slow shimmer while something loads: PR rows in the
 /// sidebar, diff lines in the review. Respects Reduce Motion (no shimmer).
-final class SkeletonView: NSView {
-    enum Shape { case pullRequests, diff }
+public final class SkeletonView: NSView {
+    public enum Shape { case pullRequests, diff }
+    /// Behind the caption; nil: the layer's background, else the diff's.
+    public var plateColor: NSColor? { didSet { needsLayout = true } }
 
     private let shape: Shape
     private let bars = CAShapeLayer()
@@ -14,7 +16,7 @@ final class SkeletonView: NSView {
     /// Behind the spinner and caption, so they never sit on the bars.
     private let pill = NSView()
 
-    init(_ shape: Shape) {
+    public init(_ shape: Shape) {
         self.shape = shape
         super.init(frame: .zero)
         wantsLayer = true
@@ -37,12 +39,12 @@ final class SkeletonView: NSView {
         for v in [pill, caption, spinner] as [NSView] { addSubview(v) }
     }
 
-    required init?(coder: NSCoder) { fatalError() }
+    public required init?(coder: NSCoder) { fatalError() }
 
-    override var isFlipped: Bool { true }
+    override public var isFlipped: Bool { true }
 
     /// The line under the shapes ("Getting #42 from GitHub…"); nil hides it.
-    func set(caption text: String?) {
+    public func set(caption text: String?) {
         caption.stringValue = text ?? ""
         caption.isHidden = text == nil
         pill.isHidden = text == nil
@@ -50,17 +52,17 @@ final class SkeletonView: NSView {
         needsLayout = true
     }
 
-    override func viewDidMoveToWindow() {
+    override public func viewDidMoveToWindow() {
         super.viewDidMoveToWindow()
         window == nil ? shine.removeAllAnimations() : startShimmer()
     }
 
-    override func viewDidChangeEffectiveAppearance() {
+    override public func viewDidChangeEffectiveAppearance() {
         super.viewDidChangeEffectiveAppearance()
         needsLayout = true
     }
 
-    override func layout() {
+    override public func layout() {
         super.layout()
         CATransaction.begin()
         CATransaction.setDisableActions(true)
@@ -111,7 +113,9 @@ final class SkeletonView: NSView {
         spinner.frame = NSRect(x: bounds.midX - 8, y: captionY - 26, width: 16, height: 16)
         caption.frame = NSRect(x: bounds.midX - textWidth / 2, y: captionY, width: textWidth, height: 18)
         pill.frame = NSRect(x: bounds.midX - textWidth / 2 - 22, y: captionY - 38, width: textWidth + 44, height: 66)
-        pill.layer?.backgroundColor = (layer?.backgroundColor).flatMap { NSColor(cgColor: $0) }?.cgColor ?? DiffStyle.background.cgColor
+        effectiveAppearance.performAsCurrentDrawingAppearance {
+            pill.layer?.backgroundColor = plateColor?.cgColor ?? (layer?.backgroundColor).flatMap { NSColor(cgColor: $0) }?.cgColor ?? DiffStyle.background.cgColor
+        }
         pill.layer?.borderWidth = 1
         effectiveAppearance.performAsCurrentDrawingAppearance { pill.layer?.borderColor = NSColor.separatorColor.cgColor }
         CATransaction.commit()

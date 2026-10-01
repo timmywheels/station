@@ -112,19 +112,50 @@ final class AppModel {
         guard canPick(pr) else { NSSound.beep(); return }
         if picked.contains(pr.id) { picked.remove(pr.id) } else { picked.insert(pr.id) }
     }
-    /// Close every picked PR on GitHub, then refresh. Returns what failed, as "repo#n: reason".
-    func closePicked() async -> [String] {
+    /// What closing `pr` from its right-click menu would close: the whole pick when it's part of one.
+    func closeTargets(for pr: PullRequest) -> [PullRequest] {
+        guard canPick(pr) else { return [] }
+        return picked.contains(pr.id) ? all.filter { picked.contains($0.id) && canPick($0) } : [pr]
+    }
+
+    /// Ask, then close `prs` on GitHub (yours, open), refresh, and say what GitHub refused.
+    func confirmAndClose(_ prs: [PullRequest]) {
+        let prs = prs.filter(canPick)
+        guard !prs.isEmpty else { return }
+        let alert = NSAlert()
+        alert.messageText = prs.count == 1 ? "Close \(prs[0].shortRef)?" : "Close \(prs.count) pull requests?"
+        alert.informativeText = (prs.count == 1 ? prs[0].title + "\n\n" : "") + "They close on GitHub without merging. You can reopen them there."
+        alert.addButton(withTitle: "Close")
+        alert.addButton(withTitle: "Cancel")
+        alert.buttons[0].hasDestructiveAction = true
+        NSApp.activate()
+        guard alert.runModal() == .alertFirstButtonReturn else { return }
+        Task {
+            let failed = await close(prs)
+            guard !failed.isEmpty else { return }
+            let err = NSAlert()
+            err.messageText = failed.count == 1 ? "One didn't close" : "\(failed.count) didn't close"
+            err.informativeText = failed.joined(separator: "\n")
+            err.runModal()
+        }
+    }
+
+    /// Close `prs` on GitHub, then refresh. Returns what failed, as "repo#n: reason".
+    func close(_ prs: [PullRequest]) async -> [String] {
         guard let provider else { return ["Not signed in to GitHub"] }
-        let prs = all.filter { picked.contains($0.id) && canPick($0) }
+        closing = true
+        defer { closing = false }
         var failed: [String] = []
         for pr in prs {
             do { try await provider.closePullRequest(repo: pr.repo, number: pr.number) }
             catch { failed.append("\(pr.shortRef): \(error.localizedDescription)") }
         }
-        picked = []
+        picked.subtract(prs.map(\.id))
         await refresh()
         return failed
     }
+    /// A close is on its way to GitHub.
+    private(set) var closing = false
     var showHotkeys = false
     /// Tab focus inside the expanded row: index into its button row. nil = none.
     var focusedButton: Int?
