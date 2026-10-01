@@ -11,8 +11,6 @@ final class ProjectWindowController: NSWindowController, NSWindowDelegate {
     private var commentsPanel = CommentsPanel()
     private var commentsItem: NSSplitViewItem?
     private var contextWindow: ContextWindowController?
-    private var sidebarController: SidebarController?
-    private var prList: PullRequestList?
     /// What the window shows; Review is the diff (the split view below).
     private(set) var mode: StationMode = .review
     private var reviewSplit: NSSplitViewController?
@@ -118,7 +116,6 @@ final class ProjectWindowController: NSWindowController, NSWindowDelegate {
         toolbar.refreshTitles()
         updateTitle()
         let choice = reviewView.choice
-        prList?.current = choice.mode == .pullRequest ? choice.pr.map(Int.init) : nil
     }
 
     /// The front tab's review is the repo's review (agents and the CLI read it).
@@ -214,14 +211,7 @@ final class ProjectWindowController: NSWindowController, NSWindowDelegate {
         split.addSplitViewItem(NSSplitViewItem(viewController: content))
         commentsPanel = CommentsPanel()
         wireComments()
-        let prs = PullRequestList(repo: repoPath)
-        prs.onView = { [weak self] n, done in
-            guard let self else { return }
-            (NSApp.delegate as? AppDelegate)?.viewPullRequest(n, repo: self.repoPath, done: done) // its own tab
-        }
-        prList = prs
-        let right = SidebarController(comments: commentsPanel, pullRequests: prs)
-        sidebarController = right
+        let right = SidebarController(comments: commentsPanel)
         let comments = NSSplitViewItem(inspectorWithViewController: right)
         comments.minimumThickness = 280
         comments.maximumThickness = 460
@@ -249,10 +239,10 @@ final class ProjectWindowController: NSWindowController, NSWindowDelegate {
         }
     }
 
-    /// ⇧⌘P: the Pull Requests sidebar, search focused.
+    /// ⇧⌘P: the Pull Requests tab, its filter focused.
     @objc func openPullRequest(_ sender: Any?) {
-        showRight(.pullRequests)
-        prList?.focusSearch()
+        go(.pullRequests)
+        StationHost.focusFilter?(.pullRequests)
     }
 
     /// ⌘K: the command palette, over this window.
@@ -265,7 +255,6 @@ final class ProjectWindowController: NSWindowController, NSWindowDelegate {
             ("Go to Agents", "person.2", "⌘1", { [weak self] in self?.setMode(.agents) }),
             ("Go to Pull Requests", "arrow.triangle.pull", "⌘2", { [weak self] in self?.setMode(.pullRequests) }),
             ("Go to Review", "doc.text.magnifyingglass", "⌘3", { [weak self] in self?.setMode(.review) }),
-            ("Pull Requests", "arrow.triangle.pull", "⇧⌘P", { [weak self] in self?.openPullRequest(nil) }),
             ("Comments", "text.bubble", "", { [weak self] in self?.showComments(nil) }),
             ("Reload", "arrow.clockwise", "⌘R", { [weak self] in self?.reloadReview(nil) }),
             ("All Changes on This Branch", "square.stack", "", { var c = review.choice; c.mode = .branch; review.setChoice(c) }),
@@ -290,7 +279,7 @@ final class ProjectWindowController: NSWindowController, NSWindowDelegate {
             openFile: { path in Navigator.go(.file(repo: repo, path: path, line: nil)) }))
     }
 
-    @objc func showComments(_ sender: Any?) { showRight(.comments) }
+    @objc func showComments(_ sender: Any?) { showRight() }
 
     /// ⌘F: the filter of what's on screen. Review: the file tree's, then (again) the comments'.
     @objc func focusFilter(_ sender: Any?) {
@@ -298,7 +287,7 @@ final class ProjectWindowController: NSWindowController, NSWindowDelegate {
         case .agents, .pullRequests: StationHost.focusFilter?(mode)
         case .review:
             if sidebar.filterFocused {
-                showRight(.comments)
+                showRight()
                 commentsPanel.focusFilter()
             } else {
                 if let side = reviewSplit?.splitViewItems.first, side.isCollapsed { side.animator().isCollapsed = false }
@@ -306,15 +295,12 @@ final class ProjectWindowController: NSWindowController, NSWindowDelegate {
             }
         }
     }
-    @objc func showPullRequests(_ sender: Any?) { showRight(.pullRequests) }
-
-    /// Open the right-hand panel on a tab.
-    private func showRight(_ tab: SidebarController.Tab) {
+    /// Open the right-hand panel (comments).
+    private func showRight() {
         if commentsItem?.isCollapsed == true {
             commentsItem?.animator().isCollapsed = false
             UserDefaults.standard.set(false, forKey: "station.commentsHidden")
         }
-        sidebarController?.show(tab)
     }
 
     @objc func openContext(_ sender: Any?) {

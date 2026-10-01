@@ -216,7 +216,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     @objc func goForward(_ sender: Any?) { Navigator.forward() }
     @objc func showPullRequestsMode(_ sender: Any?) { front?.showPullRequestsMode(sender) }
     @objc func showReview(_ sender: Any?) { front?.showReview(sender) }
-    @objc func showPullRequests(_ sender: Any?) { front?.showPullRequests(sender) }
     @objc func openContext(_ sender: Any?) { front?.openContext(sender) }
     @objc func showPalette(_ sender: Any?) { front?.showPalette(sender) }
     @objc func toggleComments(_ sender: Any?) { front?.toggleComments(sender) }
@@ -384,10 +383,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         viewMenu.addItem(withTitle: "Back", action: #selector(goBack(_:)), keyEquivalent: "[")
         viewMenu.addItem(withTitle: "Forward", action: #selector(goForward(_:)), keyEquivalent: "]")
         viewMenu.addItem(.separator())
-        let c1 = viewMenu.addItem(withTitle: "Comments", action: #selector(showComments(_:)), keyEquivalent: "1")
-        c1.keyEquivalentModifierMask = [.option, .command]
-        let c2 = viewMenu.addItem(withTitle: "Pull Requests", action: #selector(showPullRequests(_:)), keyEquivalent: "2")
-        c2.keyEquivalentModifierMask = [.option, .command]
         let toggle = viewMenu.addItem(withTitle: "Toggle Sidebar", action: #selector(NSSplitViewController.toggleSidebar(_:)), keyEquivalent: "s")
         toggle.keyEquivalentModifierMask = [.control, .command]
         viewItem.submenu = viewMenu

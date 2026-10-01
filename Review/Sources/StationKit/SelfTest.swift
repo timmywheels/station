@@ -353,7 +353,6 @@ enum SelfTest {
         if mode == "prs" {
             Task { @MainActor in
                 guard let app = AppDelegate.current, let tab = app.front else { return log("setup") }
-                tab.showPullRequests(nil)
                 try? await Task.sleep(nanoseconds: 5_000_000_000) // gh round trip
                 tab.review.openPullRequest(149) { _ in }
                 try? await Task.sleep(nanoseconds: 4_000_000_000)
@@ -745,9 +744,7 @@ enum SelfTest {
                     review.document.scrollToFile(i)
                     review.document.agentCursor = (review.document.files[i].path, 12)
                 }
-                if env["STATION_SNAP_PANEL"] == "prs" { (NSApp.delegate as? AppDelegate)?.showPullRequests(nil) }
                 if let n = env["STATION_SNAP_OPEN_PR"].flatMap(Int.init) { // catch the loading states mid-flight
-                    (NSApp.delegate as? AppDelegate)?.showPullRequests(nil)
                     review.openPullRequest(n)
                     try? await Task.sleep(nanoseconds: 700_000_000)
                 } else {
