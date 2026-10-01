@@ -163,13 +163,9 @@ struct AgentsView: View {
     }
 
     private func header(_ list: [AgentSession]) -> some View {
-        let count = { (s: AgentSession.Status) in list.filter { $0.status == s }.count }
+        // The counts are on the section headers below; the filter is the only control up here.
         return HStack(spacing: 10) {
-            chip("\(count(.needsYou)) need you", .orange, on: count(.needsYou) > 0, token: "is:needs-you")
-            chip("\(count(.running)) running", .blue, on: count(.running) > 0, token: "is:running")
-            chip("\(count(.idle)) idle", .green, on: count(.idle) > 0, token: "is:idle")
-            Spacer()
-            TextField("Filter: words, is:running, repo:, branch:, pr:, model:", text: $search).textFieldStyle(.roundedBorder).frame(maxWidth: 280)
+            TextField("Filter: words, is:running, repo:, branch:, pr:, model:", text: $search).textFieldStyle(.roundedBorder)
                 .focused($filterFocused)
                 .onChange(of: FilterFocus.shared.agents) { filterFocused = true }
                 .help("⌘F")
@@ -181,7 +177,8 @@ struct AgentsView: View {
 
     /// Chips completing the filter being typed: prefixes, then values your sessions have.
     @ViewBuilder private var suggestionRow: some View {
-        let chips = AgentFilter.suggestions(for: search, sessions: AgentSession.all())
+        // Only while you're typing: an empty filter doesn't need a row of hints under it.
+        let chips = search.isEmpty ? [] : AgentFilter.suggestions(for: search, sessions: AgentSession.all())
         if !chips.isEmpty {
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 6) {
@@ -198,20 +195,6 @@ struct AgentsView: View {
             }
             .padding(.bottom, 8)
         }
-    }
-
-    /// A status count that filters to it (click again to clear).
-    private func chip(_ text: String, _ color: Color, on: Bool, token: String) -> some View {
-        let active = AgentFilter(search).tokens.contains(token)
-        return Button { search = AgentFilter.toggle(token, in: search) } label: {
-            Text(text).font(.system(size: 11.5, weight: .semibold))
-                .foregroundStyle(on || active ? color : .secondary)
-                .padding(.horizontal, 8).padding(.vertical, 3)
-                .background(Capsule().fill((on || active ? color : Color.secondary).opacity(active ? 0.3 : 0.12)))
-                .overlay(Capsule().strokeBorder(active ? color : .clear))
-        }
-        .buttonStyle(.plain)
-        .help(active ? "Show all" : "Show only these (\(token))")
     }
 
     private var offer: some View {
