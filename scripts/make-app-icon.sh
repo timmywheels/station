@@ -8,8 +8,8 @@
 # Run: scripts/make-app-icon.sh
 set -euo pipefail
 cd "$(dirname "$0")/.."
-LIGHT=design/station/station-stripes-light-art-1024.png
-DARK=design/station/station-stripes-dark-art-1024.png
+LIGHT=design/station/graphite/station-graphite-light-art-1024.png
+DARK=design/station/graphite/station-graphite-dark-art-1024.png
 ICON=Station/AppIcon.icon
 ASSETS=Station/Assets.xcassets
 
@@ -17,26 +17,26 @@ icon_json() { # $1: extra JSON for the light (default) look, $2: for dark ("" = 
   cat <<JSON
 {
   "fill-specializations" : [ $1 ],
-  "groups" : [ { "layers" : [ { "image-name-specializations" : [ $2 ], "name" : "stripes" } ] } ],
+  "groups" : [ { "layers" : [ { "image-name-specializations" : [ $2 ], "name" : "graphite" } ] } ],
   "supported-platforms" : { "squares" : [ "macOS" ] }
 }
 JSON
 }
 WHITE='{ "solid" : "srgb:1.00000,1.00000,1.00000,1.00000" }'
-BLACK='{ "solid" : "srgb:0.00000,0.00000,0.00000,1.00000" }'
+BLACK='{ "solid" : "srgb:0.07059,0.07843,0.09020,1.00000" }' # the dark art's bottom edge
 
 rm -rf "$ICON"; mkdir -p "$ICON/Assets"
-cp "$LIGHT" "$ICON/Assets/stripes-light.png"; cp "$DARK" "$ICON/Assets/stripes-dark.png"
+cp "$LIGHT" "$ICON/Assets/graphite-light.png"; cp "$DARK" "$ICON/Assets/graphite-dark.png"
 icon_json "{ \"value\" : $WHITE }, { \"appearance\" : \"dark\", \"value\" : $BLACK }" \
-          '{ "value" : "stripes-light.png" }, { "appearance" : "dark", "value" : "stripes-dark.png" }' > "$ICON/icon.json"
+          '{ "value" : "graphite-light.png" }, { "appearance" : "dark", "value" : "graphite-dark.png" }' > "$ICON/icon.json"
 
 # Each look on its own, compiled by actool, taken from the .icns it renders.
 TMP=$(mktemp -d); trap 'rm -rf "$TMP"' EXIT
 for look in Light Dark; do
   src=$([ $look = Light ] && echo "$LIGHT" || echo "$DARK"); fill=$([ $look = Light ] && echo "$WHITE" || echo "$BLACK")
   one="$TMP/$look/AppIcon.icon"; mkdir -p "$one/Assets" "$TMP/$look/out"
-  cp "$src" "$one/Assets/stripes.png"
-  icon_json "{ \"value\" : $fill }" '{ "value" : "stripes.png" }' > "$one/icon.json"
+  cp "$src" "$one/Assets/graphite.png"
+  icon_json "{ \"value\" : $fill }" '{ "value" : "graphite.png" }' > "$one/icon.json"
   xcrun actool "$one" --compile "$TMP/$look/out" --platform macosx --minimum-deployment-target 14.0 \
     --app-icon AppIcon --output-partial-info-plist "$TMP/$look/p.plist" >/dev/null
   iconutil -c iconset "$TMP/$look/out/AppIcon.icns" -o "$TMP/$look/set.iconset"
