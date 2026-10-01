@@ -14,7 +14,6 @@ final class ReviewView: NSView, NSPopoverDelegate {
     private lazy var contextBar = NSHostingView(rootView: ContextBar(model: contextModel))
     /// "owner/name", from the last load (the host matches PRs and checks with it).
     private var repoSlug: String?
-    var onShowComments: (() -> Void)?
     private let statusLabel = NSTextField(labelWithString: "")
     private let progress = ProgressBarView()
     private let progressLabel = NSTextField(labelWithString: "")
@@ -84,7 +83,6 @@ final class ReviewView: NSView, NSPopoverDelegate {
         }
         contextModel.onAgent = { Navigator.go(.agents(session: $0)) }
         contextModel.onShowThread = { [weak self] id in self?.reveal(thread: id) }
-        contextModel.onComments = { [weak self] in self?.onShowComments?() }
         NotificationCenter.default.addObserver(forName: .stationContextChanged, object: nil, queue: .main) { [weak self] _ in
             MainActor.assumeIsolated { self?.refreshContext() }
         }
@@ -334,7 +332,6 @@ final class ReviewView: NSView, NSPopoverDelegate {
         let branch = base?.mode == .pullRequest ? choice.headBranch : checkedOutBranch
         contextModel.branch = pr.map { "#\($0)" + (branch.map { " · \($0)" } ?? "") } ?? branch
         contextModel.showingPR = pr
-        contextModel.openComments = document.openCommentCount
         // Failing checks CI left on lines here: "CI · <check>" threads, still open.
         contextModel.ciThreads = Dictionary(document.threads.compactMap { t -> (String, String)? in
             guard t.source?.hasPrefix("ci:") == true, t.status == .open, let a = t.entries.first?.author, a.hasPrefix("CI · ") else { return nil }
@@ -377,7 +374,6 @@ final class ReviewView: NSView, NSPopoverDelegate {
     }
 
     private func updateStatus() {
-        contextModel.openComments = document.openCommentCount
         let dirty = document.dirtyCount
         let count = document.files.count
         let viewed = document.viewedCount

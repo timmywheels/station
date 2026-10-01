@@ -48,7 +48,6 @@ public extension Notification.Name {
 final class ContextBarModel {
     var branch: String?
     var context = ReviewContext()
-    var openComments = 0
     /// The review shows this PR (its chip then opens it on GitHub instead).
     var showingPR: Int?
     /// Failing checks CI turned into comments on this diff: check name → thread id.
@@ -57,7 +56,6 @@ final class ContextBarModel {
 
     @ObservationIgnored var onPR: ((ReviewContext.PR) -> Void)?
     @ObservationIgnored var onAgent: ((String) -> Void)?
-    @ObservationIgnored var onComments: (() -> Void)?
 }
 
 /// Across the top of a review: where you are and everything connected to it, each a link.
@@ -86,26 +84,17 @@ struct ContextBar: View {
             if let checks = model.context.checks, checks.total > 0 {
                 ChecksChip(checks: checks, ciThreads: model.ciThreads, onShowThread: { model.onShowThread?($0) })
             }
-            ForEach(model.context.agents.prefix(3)) { agent in
-                Chip(help: "\(agent.title): \(agent.state.word). Show in Agents") { model.onAgent?(agent.id) } label: {
+            // Agents live in Agents; this bar only says so when one is waiting on you.
+            // The open-comment count is on the toolbar's panel button.
+            if let agent = model.context.agents.first(where: { $0.state == .needsYou }) {
+                Chip(help: "\(agent.title) needs you. Show in Agents") { model.onAgent?(agent.id) } label: {
                     AgentDot(state: agent.state)
                     Text(agent.title).lineLimit(1)
-                    Text(agent.state.word).foregroundStyle(agent.state == .needsYou ? Color.orange : Color.secondary)
+                    Text(agent.state.word).foregroundStyle(Color.orange)
                 }
                 .frame(maxWidth: 260)
             }
-            if model.context.agents.count > 3 {
-                Chip(help: "More agents on this branch") { model.onAgent?(model.context.agents[3].id) } label: {
-                    Text("+\(model.context.agents.count - 3)")
-                }
-            }
             Spacer(minLength: 8)
-            if model.openComments > 0 {
-                Chip(help: "Open comments on this diff") { model.onComments?() } label: {
-                    Image(systemName: "text.bubble")
-                    Text("\(model.openComments)").monospacedDigit()
-                }
-            }
         }
         .font(.system(size: 12))
         .padding(.horizontal, 12)
