@@ -541,67 +541,71 @@ struct PRRow: View {
                     if !isMine && !pr.isBranch && !pr.author.isEmpty && !(section?.hidesAuthor ?? false) {
                         Text("· @\(pr.author)").font(.caption).foregroundStyle(.secondary).lineLimit(1)
                     }
-                    if pr.isDraft { tag("Draft") }
-                    if pr.status == .merged && section?.id != "Merged" { tag("Merged", symbol: "arrow.triangle.merge", tint: .githubMerged) }
-                    if pr.status == .merged, let bs = pr.baseState {
-                        // Base branch health: red / yellow / green by its latest CI run.
-                        tag(pr.baseRefName, symbol: "arrow.triangle.branch", tint: stateColor(bs))
-                        .help("\(pr.baseRefName) is \(bs == .failure ? "failing" : bs == .pending ? "running" : "passing") right now")
-                    }
-                    if let note = pr.note { tag(note) }
-                    if pr.id.hasPrefix("queue:"), model.isMine(pr) {
-                        tag("yours", symbol: "person.fill")
-                            .help("Your PR, also listed in its own section above")
-                    }
-                    if let st = model.agentStatus[pr.id] {
-                        // Agent status from hooks / callbacks (US-034). Click to dismiss.
-                        Button { model.focusAgent(pr) } label: {
-                            tag(st.state == "attention" ? "needs you" : st.state == "done" ? "agent done" : "agent working",
-                                symbol: "cpu",
-                                tint: st.state == "attention" ? .orange : st.state == "done" ? stateColor(.success) : .secondary)
+                    if model.prefs.compactRows {
+                        statusLine
+                    } else {
+                        if pr.isDraft { tag("Draft") }
+                        if pr.status == .merged && section?.id != "Merged" { tag("Merged", symbol: "arrow.triangle.merge", tint: .githubMerged) }
+                        if pr.status == .merged, let bs = pr.baseState {
+                            // Base branch health: red / yellow / green by its latest CI run.
+                            tag(pr.baseRefName, symbol: "arrow.triangle.branch", tint: stateColor(bs))
+                            .help("\(pr.baseRefName) is \(bs == .failure ? "failing" : bs == .pending ? "running" : "passing") right now")
                         }
-                        .buttonStyle(.plain)
-                        .help("Reported by your agent \(st.at.compactAgo) ago. Click to jump to its terminal window; right-click the row to dismiss.")
-                    }
-                    if model.agentStatus[pr.id] == nil, let agent = AgentIndex.shared.agent(for: pr) {
-                        // The Claude Code session working on this PR: to it in Agents.
-                        Button { StationHost.go(.agents(session: agent.id)) } label: {
-                            HStack(spacing: 4) {
-                                AgentDot(state: agent.state)
-                                Text(agent.state == .ended ? "agent" : agent.state.word).font(.caption2)
+                        if let note = pr.note { tag(note) }
+                        if pr.id.hasPrefix("queue:"), model.isMine(pr) {
+                            tag("yours", symbol: "person.fill")
+                                .help("Your PR, also listed in its own section above")
+                        }
+                        if let st = model.agentStatus[pr.id] {
+                            // Agent status from hooks / callbacks (US-034). Click to dismiss.
+                            Button { model.focusAgent(pr) } label: {
+                                tag(st.state == "attention" ? "needs you" : st.state == "done" ? "agent done" : "agent working",
+                                    symbol: "cpu",
+                                    tint: st.state == "attention" ? .orange : st.state == "done" ? stateColor(.success) : .secondary)
                             }
-                            .foregroundStyle(agent.state == .needsYou ? Color.orange : Color.secondary)
-                            .padding(.horizontal, 5).padding(.vertical, 1)
-                            .background(Capsule().fill(.quaternary))
+                            .buttonStyle(.plain)
+                            .help("Reported by your agent \(st.at.compactAgo) ago. Click to jump to its terminal window; right-click the row to dismiss.")
                         }
-                        .buttonStyle(.plain)
-                        .help("\(agent.title): show it in Agents")
-                    }
-                    if pr.status == .closed { tag("Closed", symbol: "xmark", tint: stateColor(.failure)) }
-                    if pr.status == .open, !pr.isDraft, let label = pr.mergeState.label {
-                        tag(label, symbol: pr.mergeState.isBlocking ? "exclamationmark.triangle.fill" : nil,
-                            tint: pr.mergeState.isBlocking ? stateColor(.failure) : .secondary)
-                    }
-                    // A queued PR is approved by definition, so the seal would say nothing here.
-                    if pr.status == .open, !pr.isDraft, !isQueueRow, let symbol = pr.review.symbol {
-                        Image(systemName: symbol)
-                            .font(.system(size: 9, weight: .bold))
-                            .foregroundStyle(pr.review == .changesRequested ? stateColor(.failure)
-                                             : pr.review == .approved ? stateColor(.success) : Color.secondary)
-                            .help(pr.review.label)
-                    }
-                    if let q = pr.mergeQueue, !isQueueRow {
-                        tag("Queue \(q.position)",
-                            symbol: q.isBlocked ? "exclamationmark.triangle.fill" : "line.3.horizontal",
-                            tint: q.isBlocked ? stateColor(.failure) : .secondary)
-                        .help(q.isBlocked ? "Blocked: this one can't merge, and everything behind it waits"
-                                          : "Position \(q.position) in the merge queue")
-                    }
-                    if depth == 0, stack == nil, pr.hasNonTrunkBase {
-                        // Based on a branch we can't see: part of a stack whose bottom isn't in view.
-                        tag("on \(pr.baseRefName)")
-                            .frame(maxWidth: 150, alignment: .leading) // long stack branches shorten in the middle
-                            .help("Stacked on \(pr.baseRefName)")
+                        if model.agentStatus[pr.id] == nil, let agent = AgentIndex.shared.agent(for: pr) {
+                            // The Claude Code session working on this PR: to it in Agents.
+                            Button { StationHost.go(.agents(session: agent.id)) } label: {
+                                HStack(spacing: 4) {
+                                    AgentDot(state: agent.state)
+                                    Text(agent.state == .ended ? "agent" : agent.state.word).font(.caption2)
+                                }
+                                .foregroundStyle(agent.state == .needsYou ? Color.orange : Color.secondary)
+                                .padding(.horizontal, 5).padding(.vertical, 1)
+                                .background(Capsule().fill(.quaternary))
+                            }
+                            .buttonStyle(.plain)
+                            .help("\(agent.title): show it in Agents")
+                        }
+                        if pr.status == .closed { tag("Closed", symbol: "xmark", tint: stateColor(.failure)) }
+                        if pr.status == .open, !pr.isDraft, let label = pr.mergeState.label {
+                            tag(label, symbol: pr.mergeState.isBlocking ? "exclamationmark.triangle.fill" : nil,
+                                tint: pr.mergeState.isBlocking ? stateColor(.failure) : .secondary)
+                        }
+                        // A queued PR is approved by definition, so the seal would say nothing here.
+                        if pr.status == .open, !pr.isDraft, !isQueueRow, let symbol = pr.review.symbol {
+                            Image(systemName: symbol)
+                                .font(.system(size: 9, weight: .bold))
+                                .foregroundStyle(pr.review == .changesRequested ? stateColor(.failure)
+                                                 : pr.review == .approved ? stateColor(.success) : Color.secondary)
+                                .help(pr.review.label)
+                        }
+                        if let q = pr.mergeQueue, !isQueueRow {
+                            tag("Queue \(q.position)",
+                                symbol: q.isBlocked ? "exclamationmark.triangle.fill" : "line.3.horizontal",
+                                tint: q.isBlocked ? stateColor(.failure) : .secondary)
+                            .help(q.isBlocked ? "Blocked: this one can't merge, and everything behind it waits"
+                                              : "Position \(q.position) in the merge queue")
+                        }
+                        if depth == 0, stack == nil, pr.hasNonTrunkBase {
+                            // Based on a branch we can't see: part of a stack whose bottom isn't in view.
+                            tag("on \(pr.baseRefName)")
+                                .frame(maxWidth: 150, alignment: .leading) // long stack branches shorten in the middle
+                                .help("Stacked on \(pr.baseRefName)")
+                        }
                     }
                     if pinned { Image(systemName: "pin.fill").font(.caption2).foregroundStyle(.secondary) }
                 }
@@ -647,6 +651,39 @@ struct PRRow: View {
                 .padding(.trailing, 10)
                 .transition(.opacity)
             }
+        }
+    }
+
+    /// The row's status in a few words: the headline in its color, then one more fact.
+    @ViewBuilder private var statusLine: some View {
+        let status = RowStatus.of(pr, reported: model.agentStatus[pr.id]?.state,
+                                  agent: AgentIndex.shared.agent(for: pr), isQueueRow: isQueueRow)
+        if let headline = status.headline {
+            let text = HStack(spacing: 4) {
+                Text(headline.text).foregroundStyle(color(headline.level))
+                ForEach(status.parts.dropFirst(), id: \.text) { part in
+                    Text("· \(part.text)").foregroundStyle(.secondary)
+                }
+            }
+            .font(.caption).lineLimit(1)
+            .layoutPriority(1) // the ref shortens first
+            if let agent = status.agent {
+                Button { StationHost.go(.agents(session: agent.id)) } label: { text }
+                    .buttonStyle(.plain)
+                    .help("\(agent.title): show it in Agents")
+            } else {
+                text
+            }
+        }
+    }
+
+    private func color(_ level: RowStatus.Level) -> Color {
+        switch level {
+        case .needsYou: .orange
+        case .blocking: stateColor(.failure)
+        case .waiting: stateColor(.pending)
+        case .good: stateColor(.success)
+        case .info: .secondary
         }
     }
 
