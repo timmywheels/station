@@ -98,6 +98,7 @@ final class UserPrefs {
         static let tourSeen = "tourSeen"
         static let rowActions = "rowActions"
         static let rowActionsSeen = "rowActionsSeen"
+        static let rowActionsTrimmed = "rowActionsTrimmed"
         static let compactRows = "compactRows"
         static let sectionCounts = "sectionCounts"
         static let agent = "agent"
@@ -298,6 +299,13 @@ final class UserPrefs {
         tourSeen = defaults.bool(forKey: Key.tourSeen)
         // Buttons added in a later version join an existing config once, so an upgrade never hides a new
         // action; ones the user actually unchecked stay off because they were already "seen".
+        // Untouched since the long default: take the short one (once; a choice made after sticks).
+        if !defaults.bool(forKey: Key.rowActionsTrimmed) {
+            defaults.set(true, forKey: Key.rowActionsTrimmed)
+            if defaults.stringArray(forKey: Key.rowActions)?.compactMap(RowAction.init(rawValue:)) == RowAction.oldDefaultOrder {
+                defaults.removeObject(forKey: Key.rowActions)
+            }
+        }
         if var saved = defaults.stringArray(forKey: Key.rowActions)?.compactMap(RowAction.init(rawValue:)) {
             let seen = Set(defaults.stringArray(forKey: Key.rowActionsSeen) ?? [])
             saved += RowAction.defaultOrder.filter { !seen.contains($0.rawValue) && !saved.contains($0) }

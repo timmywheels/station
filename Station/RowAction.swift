@@ -7,7 +7,10 @@ enum RowAction: String, CaseIterable, Identifiable, Codable {
     case open, run, checks, queue, copyURL, share, copyBranch, copyHash, pin, fix, review, reviewInStation
     var id: String { rawValue }
 
-    static let defaultOrder: [RowAction] = [.open, .reviewInStation, .run, .queue, .copyURL, .share, .copyHash, .pin, .fix, .review]
+    /// Four, on purpose: the rest are a right-click away, or one checkbox in Settings → Display.
+    static let defaultOrder: [RowAction] = [.reviewInStation, .open, .fix, .copyURL]
+    /// The default before 1.5: anyone still on it moves to the short one once.
+    static let oldDefaultOrder: [RowAction] = [.open, .reviewInStation, .run, .queue, .copyURL, .share, .copyHash, .pin, .fix, .review]
 
     var title: String {
         switch self {

@@ -635,23 +635,6 @@ struct PRRow: View {
                     if NSEvent.modifierFlags.contains(.command) { secondaryClick() } else { primaryClick() }
                 })
         )
-        // Quick actions on hover. Attached AFTER the tap gesture so the buttons own their clicks.
-        .overlay(alignment: .trailing) {
-            if hovering && !expanded && !editingAlias {
-                HStack(spacing: 12) {
-                    glyph("arrow.up.right", help: "Open on GitHub (⌥-click the row)") { openURL(pr.url) }
-                    glyph(copied == "url" ? "checkmark" : "doc.on.doc", help: "Copy URL", tint: copied == "url" ? stateColor(.success) : nil) {
-                        flash("url") { copy(pr.url.absoluteString) }
-                    }
-                    glyph(copied == "share" ? "checkmark" : "square.and.arrow.up", help: "Share: title as a link",
-                          tint: copied == "share" ? stateColor(.success) : nil) { flash("share") { copyRichLink() } }
-                }
-                .padding(.horizontal, 10).padding(.vertical, 6)
-                .background(.regularMaterial, in: Capsule())
-                .padding(.trailing, 10)
-                .transition(.opacity)
-            }
-        }
     }
 
     /// The row's status in a few words: the headline in its color, then one more fact.
@@ -770,15 +753,6 @@ struct PRRow: View {
             }
         }
         .padding(.leading, 34 + CGFloat(depth) * 14).padding(.trailing, 12).padding(.bottom, 10)
-    }
-
-    private func glyph(_ symbol: String, help: String, tint: Color? = nil, action: @escaping () -> Void) -> some View {
-        Button(action: action) {
-            Image(systemName: symbol).font(.caption.weight(.medium)).foregroundStyle(tint ?? .secondary)
-                .frame(width: 16, height: 16).contentShape(Rectangle())
-        }
-        .buttonStyle(.plain)
-        .help(help)
     }
 
     private struct RowButton { let symbol: String; let help: String; let tint: Color?; let action: () -> Void }
