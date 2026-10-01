@@ -124,6 +124,10 @@ struct MenuBarView: View {
                 centered("Loading…")
             } else if model.isEmpty {
                 centered("No open PRs")
+            } else if rowCount == 0, let ref = model.searchedPullRequest {
+                UnlistedPullRequest(ref: ref, model: model)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    .onAppear { model.contentHeight = 120 }
             } else if rowCount == 0 && (!model.statusFilter.isEmpty || !model.searchText.isEmpty) {
                 centered(model.searchText.isEmpty ? "No PRs match the filter" : "No PRs match “\(model.searchText)”")
             } else {
@@ -962,6 +966,31 @@ struct SignInView: View {
                 SecureField("github_pat_…", text: $token)
                 Button("Save") { Task { await model.signIn(pastedToken: token); token = "" } }
                     .disabled(token.isEmpty)
+            }
+        }
+        .padding(16)
+    }
+}
+
+/// A pasted link to a PR that isn't in any of your lists: open it anyway, or keep it in the list.
+struct UnlistedPullRequest: View {
+    let ref: PRRef
+    @Bindable var model: AppModel
+
+    var body: some View {
+        VStack(spacing: 10) {
+            Text("\(ref.repo) #\(ref.number) isn't in your lists").foregroundStyle(.secondary)
+            HStack(spacing: 8) {
+                Button("Open in Station") {
+                    model.searchText = ""
+                    StationHost.go(.pullRequest(repo: ref.repo, number: ref.number))
+                }
+                .keyboardShortcut(.defaultAction)
+                Button("Watch It") {
+                    let link = "https://github.com/\(ref.repo)/pull/\(ref.number)"
+                    if model.watch(urlString: link) != .invalid { model.searchText = "" }
+                }
+                .help("Adds it to Watching, where it stays until it closes")
             }
         }
         .padding(16)

@@ -24,7 +24,9 @@ struct PullRequestsPane: View {
             .padding(.horizontal, 16).padding(.vertical, 10)
             Divider()
             if case .signedIn = model.auth {
-                if model.sections.allSatisfy({ $0.prs.isEmpty }) {
+                if model.sections.allSatisfy({ $0.prs.isEmpty }), let ref = model.searchedPullRequest {
+                    UnlistedPullRequest(ref: ref, model: model).frame(maxWidth: .infinity, maxHeight: .infinity)
+                } else if model.sections.allSatisfy({ $0.prs.isEmpty }) {
                     Text(model.searchText.isEmpty ? "No open pull requests" : "No matches")
                         .foregroundStyle(.secondary).frame(maxWidth: .infinity, maxHeight: .infinity)
                 } else {

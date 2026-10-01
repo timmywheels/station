@@ -197,6 +197,8 @@ final class AppModel {
     /// The "watch a PR by URL" field. Opened by ⌘N or the dots' right-click menu (US-040).
     var isWatching = false
     private var searchQuery: SearchQuery { SearchQuery(searchText) }
+    /// The PR a pasted link names, when the search is one.
+    var searchedPullRequest: PRRef? { searchQuery.pullRequest }
     var searchContext: SearchQuery.Context {
         let names = displayNames, labels = prefs.sources.userLabels, aliases = prefs.sources.prAliases
         return SearchQuery.Context(
