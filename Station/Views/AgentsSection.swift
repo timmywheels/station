@@ -1,12 +1,11 @@
 import SwiftUI
 
-/// The panel's first section: every Claude Code session on this Mac, the ones waiting on you
-/// first. Hidden when none are running; a one-line offer to turn it on until you do.
+/// The panel's first section, one line: how many Claude Code sessions need you and how many are
+/// working, opening Agents. Only the ones waiting on you get a row of their own: they're the ones
+/// you'd act on from here. Hidden when none are running; a one-line offer to turn it on until you do.
 struct AgentsSection: View {
     private var board: AgentBoard { .shared }
     @AppStorage("agentsOfferDismissed") private var offerDismissed = false
-    /// Folded to its header (counts stay visible); remembered.
-    @AppStorage("agentsCollapsed") private var collapsed = false
 
     private static var claudeInstalled: Bool {
         FileManager.default.fileExists(atPath: FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent(".claude").path)
@@ -18,45 +17,31 @@ struct AgentsSection: View {
         } else if !board.agents.isEmpty {
             VStack(alignment: .leading, spacing: 2) {
                 header
-                if !collapsed {
-                    ForEach(board.agents) { AgentRow(agent: $0, branch: board.branches[$0.cwd]) }
-                        .transition(.opacity.combined(with: .move(edge: .top)))
-                }
+                ForEach(board.agents.filter { $0.state == .needsYou }) { AgentRow(agent: $0, branch: board.branches[$0.cwd]) }
+                    .transition(.opacity.combined(with: .move(edge: .top)))
             }
             .padding(.horizontal, 8)
-            .padding(.top, 8)
-            .padding(.bottom, 6)
+            .padding(.vertical, 6)
             Divider().padding(.horizontal, 12)
         }
     }
 
     private var header: some View {
         let needs = board.needsYou, working = board.agents.filter { $0.state == .working }.count
-        return HStack(spacing: 6) {
-            Button {
-                withAnimation(.snappy(duration: 0.2)) { collapsed.toggle() }
-            } label: {
-                HStack(spacing: 4) {
-                    Image(systemName: "chevron.right")
-                        .font(.system(size: 9, weight: .bold))
-                        .rotationEffect(.degrees(collapsed ? 0 : 90))
-                    Text("Agents").font(.system(size: 11, weight: .semibold))
-                    if collapsed { Text("\(board.agents.count)").font(.system(size: 11)).monospacedDigit() }
-                }
-                .foregroundStyle(.secondary)
-                .contentShape(Rectangle())
+        return Button { AgentsWindow.present() } label: {
+            HStack(spacing: 6) {
+                Text("Agents").font(.system(size: 11, weight: .semibold)).foregroundStyle(.secondary)
+                if needs > 0 { Text("\(needs) need\(needs == 1 ? "s" : "") you").font(.system(size: 11, weight: .semibold)).foregroundStyle(.orange) }
+                if working > 0 { Text("\(working) working").font(.system(size: 11)).foregroundStyle(.secondary) }
+                if needs == 0 && working == 0 { Text("\(board.agents.count) idle").font(.system(size: 11)).foregroundStyle(.tertiary) }
+                Spacer()
+                Image(systemName: "chevron.right").font(.system(size: 9, weight: .bold)).foregroundStyle(.tertiary)
             }
-            .buttonStyle(.plain)
-            .help(collapsed ? "Show agents" : "Hide agents")
-            if needs > 0 { Text("\(needs) need\(needs == 1 ? "s" : "") you").font(.system(size: 11, weight: .semibold)).foregroundStyle(.orange) }
-            if working > 0 { Text("\(working) working").font(.system(size: 11)).foregroundStyle(.secondary) }
-            Spacer()
-            Button("Show All") { AgentsWindow.present() }
-                .buttonStyle(.borderless).font(.system(size: 11))
-                .help("Every session, live and past (⇧⌘A)")
+            .padding(.horizontal, 4).padding(.vertical, 2)
+            .contentShape(Rectangle())
         }
-        .padding(.horizontal, 4)
-        .padding(.bottom, 2)
+        .buttonStyle(.plain)
+        .help("Every session, live and past (⇧⌘A)")
     }
 
     private var offer: some View {
