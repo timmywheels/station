@@ -637,36 +637,41 @@ struct PRRow: View {
         )
     }
 
-    /// The row's status in a few words: the headline in its color, then one more fact.
+    /// The row's status as glyphs, most urgent first; hover one for its words.
     @ViewBuilder private var statusLine: some View {
         let status = RowStatus.of(pr, reported: model.agentStatus[pr.id]?.state,
                                   agent: AgentIndex.shared.agent(for: pr), isQueueRow: isQueueRow)
-        if let headline = status.headline {
-            let text = HStack(spacing: 4) {
-                Text(headline.text).foregroundStyle(color(headline.level))
-                ForEach(status.parts.dropFirst(), id: \.text) { part in
-                    Text("· \(part.text)").foregroundStyle(.secondary)
+        if !status.parts.isEmpty {
+            let glyphs = HStack(spacing: 5) {
+                ForEach(status.parts, id: \.symbol) { part in
+                    HStack(spacing: 2) {
+                        Image(systemName: part.symbol)
+                        if let n = part.count { Text("\(n)").monospacedDigit() }
+                    }
+                    .foregroundStyle(color(part.level))
+                    .help(part.help)
+                    .accessibilityLabel(part.help)
                 }
             }
-            .font(.caption).lineLimit(1)
-            .layoutPriority(1) // the ref shortens first
+            .font(.system(size: 10, weight: .semibold))
+            .fixedSize()
             if let agent = status.agent {
-                Button { StationHost.go(.agents(session: agent.id)) } label: { text }
+                Button { StationHost.go(.agents(session: agent.id)) } label: { glyphs }
                     .buttonStyle(.plain)
                     .help("\(agent.title): show it in Agents")
             } else {
-                text
+                glyphs
             }
         }
     }
 
+    /// Only what needs someone gets a color; the rest stays quiet so the dot keeps meaning CI.
     private func color(_ level: RowStatus.Level) -> Color {
         switch level {
         case .needsYou: .orange
         case .blocking: stateColor(.failure)
-        case .waiting: stateColor(.pending)
         case .good: stateColor(.success)
-        case .info: .secondary
+        case .waiting, .info: .secondary
         }
     }
 

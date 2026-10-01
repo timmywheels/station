@@ -210,7 +210,7 @@ final class UserPrefs {
     /// What a collapsed header shows next to its title (US-018). Local only.
     var sectionCounts: SectionCounts { didSet { defaults.set(sectionCounts.rawValue, forKey: Key.sectionCounts) } }
 
-    /// A row says its status in a few words ("Merge conflicts · Waiting for review") instead of tags. Local only.
+    /// A row shows its status as a few glyphs (RowStatus) instead of tags. Local only.
     var compactRows: Bool { didSet { defaults.set(compactRows, forKey: Key.compactRows) } }
 
     /// Which circular buttons an expanded row shows, in order (US-031). Local only.

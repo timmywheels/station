@@ -159,8 +159,8 @@ private struct DisplayTab: View {
 
             Section {
                 Toggle(isOn: $prefs.compactRows) {
-                    InfoLabel("Say each PR's status in a few words",
-                              "\"Merge conflicts · Waiting for review\" instead of a row of tags. The details are one click away.")
+                    InfoLabel("Show each PR's status as glyphs",
+                              "A few glyphs (hover for their words) instead of a row of tags. The details are one click away.")
                 }
                 Picker(selection: $prefs.primaryClick) {
                     ForEach(UserPrefs.PrimaryClick.allCases) { Text($0.title).tag($0) }
