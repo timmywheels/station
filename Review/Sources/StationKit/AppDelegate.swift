@@ -247,12 +247,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         NSWorkspace.shared.open(Extensions.userDir)
     }
 
-    @objc func setFont(_ sender: NSMenuItem) {
-        guard let family = sender.representedObject as? String else { return }
-        Style.shared.update { $0.fontFamily = family == Style.defaultFontFamily ? "" : family }
-    }
-
-    @objc func toggleLigatures(_ sender: Any?) { Style.shared.update { $0.fontLigatures.toggle() } }
     @objc func toggleFollow(_ sender: Any?) { front?.review.toggleFollow() }
     /// The review's primed Claude session: start (or resume), start over, or end it.
     @objc func startAgentSession(_ sender: Any?) { front?.review.startSession(force: true) }
@@ -274,23 +268,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         try? text.write(to: url, atomically: true, encoding: .utf8)
         NSWorkspace.shared.open(url)
     }
+    @objc func connectAgent(_ sender: Any?) { front?.review.showConnect() }
     @objc func newAgentSession(_ sender: Any?) { front?.review.startSession(fresh: true, force: true) }
     @objc func endAgentSession(_ sender: Any?) { front?.review.stopSession() }
-    @objc func toggleMenuBar(_ sender: Any?) { Style.shared.update { $0.menuBar.toggle() } }
 
     @objc func zoomIn(_ sender: Any?) { Style.shared.update { $0.fontSize = min(32, $0.fontSize + 1) } }
     @objc func zoomOut(_ sender: Any?) { Style.shared.update { $0.fontSize = max(8, $0.fontSize - 1) } }
     @objc func zoomReset(_ sender: Any?) { Style.shared.update { $0.fontSize = Settings.defaultFontSize } }
-
-    @objc func setAppearance(_ sender: NSMenuItem) {
-        guard let mode = sender.representedObject as? String else { return }
-        Style.shared.update { $0.appearance = mode }
-    }
-
-    @objc func setTheme(_ sender: NSMenuItem) {
-        guard let name = sender.representedObject as? String else { return }
-        Style.shared.selectTheme(name)
-    }
 
     func menuNeedsUpdate(_ menu: NSMenu) {
         if menu.title == "Run Reviewer" {
@@ -308,36 +292,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         }
         menu.item(withTitle: "Show Resolved Comments")?.state = ReviewFile.showResolved ? .on : .off
         menu.item(withTitle: "Show Right Panel")?.state = front?.commentsVisible == true ? .on : .off
-        let style = Style.shared
-        if let appearance = menu.item(withTitle: "Appearance")?.submenu {
-            appearance.removeAllItems()
-            for (title, mode) in [("System", "system"), ("Light", "light"), ("Dark", "dark")] {
-                let item = appearance.addItem(withTitle: title, action: #selector(setAppearance(_:)), keyEquivalent: "")
-                item.representedObject = mode
-                item.state = style.settings.appearance == mode ? .on : .off
-            }
-        }
-        menu.item(withTitle: "Font Ligatures")?.state = style.settings.fontLigatures ? .on : .off
-        menu.item(withTitle: "Show Agents in Menu Bar")?.state = style.settings.menuBar ? .on : .off
         menu.item(withTitle: "Follow Agent")?.state = front?.review.document.following == true ? .on : .off
-        if let fonts = menu.item(withTitle: "Font")?.submenu {
-            fonts.removeAllItems()
-            for (i, family) in style.monospaceFamilies.enumerated() {
-                if i == 2 { fonts.addItem(.separator()) } // default + system mono, then installed fonts
-                let title = family == Style.defaultFontFamily ? "\(family) (default)" : family
-                let item = fonts.addItem(withTitle: title, action: #selector(setFont(_:)), keyEquivalent: "")
-                item.representedObject = family
-                item.state = style.fontFamily == family ? .on : .off
-            }
-        }
-        if let themes = menu.item(withTitle: "Theme")?.submenu {
-            themes.removeAllItems()
-            for t in style.themesForCurrentMode {
-                let item = themes.addItem(withTitle: t.name, action: #selector(setTheme(_:)), keyEquivalent: "")
-                item.representedObject = t.name
-                item.state = style.theme.name == t.name ? .on : .off
-            }
-        }
     }
 
     /// With the menu bar item on, Station keeps watching your agents after the last window closes.
@@ -397,6 +352,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         let reviewers = reviewMenu.addItem(withTitle: "Run Reviewer", action: nil, keyEquivalent: "")
         reviewers.submenu = NSMenu(title: "Run Reviewer")
         reviewers.submenu?.delegate = self // lists this repo's reviewers when opened
+        reviewMenu.addItem(withTitle: "Connect an Agent…", action: #selector(connectAgent(_:)), keyEquivalent: "")
         reviewMenu.addItem(withTitle: "Start Agent Session", action: #selector(startAgentSession(_:)), keyEquivalent: "")
         reviewMenu.addItem(withTitle: "New Agent Session", action: #selector(newAgentSession(_:)), keyEquivalent: "")
         reviewMenu.addItem(withTitle: "End Agent Session", action: #selector(endAgentSession(_:)), keyEquivalent: "")
@@ -404,19 +360,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
         let viewItem = NSMenuItem()
         let viewMenu = NSMenu(title: "View")
-        viewMenu.delegate = self // rebuilds Appearance/Theme submenus with checkmarks
+        viewMenu.delegate = self // checkmarks (Show Right Panel, Show Resolved, Follow Agent)
         viewMenu.addItem(withTitle: "Zoom In", action: #selector(zoomIn(_:)), keyEquivalent: "=")
         viewMenu.addItem(withTitle: "Zoom Out", action: #selector(zoomOut(_:)), keyEquivalent: "-")
         viewMenu.addItem(withTitle: "Actual Size", action: #selector(zoomReset(_:)), keyEquivalent: "0")
-        viewMenu.addItem(.separator())
-        let fontItem = viewMenu.addItem(withTitle: "Font", action: nil, keyEquivalent: "")
-        fontItem.submenu = NSMenu(title: "Font")
-        viewMenu.addItem(withTitle: "Font Ligatures", action: #selector(toggleLigatures(_:)), keyEquivalent: "")
-        viewMenu.addItem(.separator())
-        let appearanceItem = viewMenu.addItem(withTitle: "Appearance", action: nil, keyEquivalent: "")
-        appearanceItem.submenu = NSMenu(title: "Appearance")
-        let themeItem = viewMenu.addItem(withTitle: "Theme", action: nil, keyEquivalent: "")
-        themeItem.submenu = NSMenu(title: "Theme")
         viewMenu.addItem(.separator())
         let collapse = viewMenu.addItem(withTitle: "Collapse All Files", action: #selector(collapseAll(_:)), keyEquivalent: String(UnicodeScalar(NSLeftArrowFunctionKey)!))
         collapse.keyEquivalentModifierMask = [.option, .command]
@@ -426,7 +373,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         let comments = viewMenu.addItem(withTitle: "Show Right Panel", action: #selector(toggleComments(_:)), keyEquivalent: "0")
         comments.keyEquivalentModifierMask = [.option, .command]
         viewMenu.addItem(withTitle: "Show Resolved Comments", action: #selector(toggleResolved(_:)), keyEquivalent: "R")
-        viewMenu.addItem(withTitle: "Show Agents in Menu Bar", action: #selector(toggleMenuBar(_:)), keyEquivalent: "")
         let follow = viewMenu.addItem(withTitle: "Follow Agent", action: #selector(toggleFollow(_:)), keyEquivalent: "f")
         follow.keyEquivalentModifierMask = [.option, .command]
         viewMenu.addItem(.separator())

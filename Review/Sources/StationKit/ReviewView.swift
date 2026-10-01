@@ -17,7 +17,6 @@ final class ReviewView: NSView, NSPopoverDelegate {
     var onShowComments: (() -> Void)?
     private let statusLabel = NSTextField(labelWithString: "")
     private let progress = ProgressBarView()
-    private let foldAllButton = NSButton()
     private let progressLabel = NSTextField(labelWithString: "")
     private let agentButton = AgentButton()
     private let reviewButton = CapsuleButton()
@@ -27,7 +26,6 @@ final class ReviewView: NSView, NSPopoverDelegate {
     /// Commit / push your branch (working-tree views only).
     private let gitButton = ShipButton()
     /// "Update to 0.3.0" when a newer release is out (installed app only).
-    private let updateButton = CapsuleButton()
     private var gitStatus: BranchStatus?
     private var gitPopover: NSPopover?
     /// Agents with station set up (from each agent's CLI; checked in the background).
@@ -124,14 +122,6 @@ final class ReviewView: NSView, NSPopoverDelegate {
         reviewButton.setText("Review changes")
         reviewButton.target = self
         reviewButton.action = #selector(showReview)
-        foldAllButton.isBordered = false
-        foldAllButton.imagePosition = .imageOnly
-        foldAllButton.target = self
-        foldAllButton.action = #selector(toggleFoldAll)
-        updateButton.target = self
-        updateButton.action = #selector(updateClicked)
-        updateButton.isHidden = true
-        NotificationCenter.default.addObserver(self, selector: #selector(updaterChanged), name: .updaterChanged, object: nil)
         gitButton.target = self
         gitButton.action = #selector(gitClicked)
         gitButton.isHidden = true
@@ -139,7 +129,9 @@ final class ReviewView: NSView, NSPopoverDelegate {
         prBar.onMerge = { [weak self] in self?.showMerge() }
         prBar.onSync = { [weak self] in self?.syncGitHub(force: true, manual: true) }
         prBar.onCheckout = { [weak self] in self?.checkOutPullRequest() }
-        for v in [foldAllButton, progress, progressLabel, statusLabel, updateButton, gitButton, reviewButton, followButton, agentButton] as [NSView] { statusBar.addSubview(v) }
+        // Three things live here: how far you've got, Commit/Push, and Review. Agent and Follow show only
+        // while an agent is doing something; folding is ⌥⌘←/→ and updates are in the menu bar panel.
+        for v in [progress, progressLabel, statusLabel, gitButton, reviewButton, followButton, agentButton] as [NSView] { statusBar.addSubview(v) }
         // Agents come and go (sessions start/end); poll cheaply.
         agentTimer = Timer.scheduledTimer(withTimeInterval: 2, repeats: true) { [weak self] _ in
             MainActor.assumeIsolated {
@@ -199,16 +191,14 @@ final class ReviewView: NSView, NSPopoverDelegate {
             v.frame.origin = NSPoint(x: x, y: round((h - v.frame.height) / 2) + 0.5)
         }
         var right = bounds.width - 8 // 8pt all around: the capsule follows the window's corner
-        for v in [agentButton, followButton, reviewButton, gitButton, updateButton] where !v.isHidden {
+        for v in [agentButton, followButton, reviewButton, gitButton] where !v.isHidden {
             v.fit()
             right -= v.frame.width
             v.frame.origin = NSPoint(x: right, y: round((h - v.frame.height) / 2))
             right -= 8
         }
         right -= 4
-        var left: CGFloat = 10
-        foldAllButton.frame = NSRect(x: left, y: round((h - 22) / 2), width: 22, height: 22)
-        left = foldAllButton.frame.maxX + 8
+        var left: CGFloat = 12
         progressLabel.sizeToFit()
         // Narrow window: the right-hand buttons win; progress goes before it would overlap.
         let fitsProgress = left + 72 + 8 + progressLabel.frame.width + 12 <= right
@@ -388,19 +378,7 @@ final class ReviewView: NSView, NSPopoverDelegate {
 
     private func updateStatus() {
         contextModel.openComments = document.openCommentCount
-        let added = document.files.reduce(0) { $0 + $1.added }
-        let removed = document.files.reduce(0) { $0 + $1.removed }
         let dirty = document.dirtyCount
-        let comments = document.openCommentCount
-        let collapseNext = document.anyExpanded
-        let symbol = collapseNext ? "rectangle.compress.vertical" : "rectangle.expand.vertical"
-        let tip = collapseNext ? "Collapse all files (⌥⌘←)" : "Expand all files (⌥⌘→)"
-        if foldAllButton.toolTip != tip {
-            let config = NSImage.SymbolConfiguration(pointSize: 12, weight: .medium)
-            foldAllButton.image = NSImage(systemSymbolName: symbol, accessibilityDescription: tip)?.withSymbolConfiguration(config)
-            foldAllButton.contentTintColor = .secondaryLabelColor
-            foldAllButton.toolTip = tip
-        }
         let count = document.files.count
         let viewed = document.viewedCount
         progress.fraction = count == 0 ? 0 : CGFloat(viewed) / CGFloat(count)
@@ -409,28 +387,14 @@ final class ReviewView: NSView, NSPopoverDelegate {
         // Parts in display order with a priority; when the bar is narrow the
         // least important ones go whole, rather than truncating mid-word.
         let font = NSFont.systemFont(ofSize: 11.5)
-        let digits = NSFont.monospacedDigitSystemFont(ofSize: 11.5, weight: .medium)
         func part(_ pieces: [(String, NSColor, NSFont)]) -> NSAttributedString {
             let a = NSMutableAttributedString()
             for (t, c, f) in pieces { a.append(NSAttributedString(string: t, attributes: [.font: f, .foregroundColor: c])) }
             return a
         }
-        var parts: [(priority: Int, text: NSAttributedString)] = [
-            (0, part([("+\(added)", DiffStyle.addedAccent, digits), (" −\(removed)", DiffStyle.deletedAccent, digits)])),
-        ]
-        switch base?.mode {
-        case .branch?:
-            parts.append((2, part([(base?.branch.map { "vs \($0)" } ?? "vs HEAD (no main branch found)", .secondaryLabelColor, font)])))
-            if let n = base?.commits, n > 0 { parts.append((4, part([("\(n) commit\(n == 1 ? "" : "s")", .secondaryLabelColor, font)]))) }
-        case .commit?:
-            parts.append((2, part([("one commit · read-only", .secondaryLabelColor, font)])))
-        case .pullRequest?:
-            parts.append((2, part([("pull request vs \(base?.branch ?? "base") · read-only", .secondaryLabelColor, font)])))
-            if let n = base?.commits, n > 0 { parts.append((4, part([("\(n) commit\(n == 1 ? "" : "s")", .secondaryLabelColor, font)]))) }
-        default:
-            parts.append((2, part([("uncommitted changes", .secondaryLabelColor, font)])))
-        }
-        if comments > 0 { parts.append((1, part([("\(comments) open comment\(comments == 1 ? "" : "s")", DiffStyle.accent, font)]))) }
+        // Only what needs you: unsaved edits. The rest (+/−, what it's compared against, comments)
+        // already has a home in the toolbar and the right panel.
+        var parts: [(priority: Int, text: NSAttributedString)] = []
         if dirty > 0 { parts.append((1, part([("\(dirty) unsaved (⌘S)", .systemOrange, font)]))) }
         statusParts = parts
         statusLabel.toolTip = String(format: "Loaded in %.0f ms", loadMs)
@@ -686,37 +650,6 @@ final class ReviewView: NSView, NSPopoverDelegate {
                     self.updateStatus()
                     done(message(for: e))
                 }
-            }
-        }
-    }
-
-    // MARK: Updates
-
-    @objc private func updaterChanged() {
-        let u = Updater.shared
-        let show = u.state == .available || u.state == .downloading || u.state == .installing
-        updateButton.isHidden = !show
-        if show {
-            let title = u.state == .available ? "Update to \(u.latest?.version ?? "")" : u.state == .downloading ? "Downloading…" : "Installing…"
-            updateButton.setText(title)
-            updateButton.contentTintColor = DiffStyle.accent
-            updateButton.toolTip = "Station \(u.latest?.version ?? "") is available (you have \(u.currentVersion))"
-        }
-        needsLayout = true
-    }
-
-    @objc private func updateClicked() {
-        guard Updater.shared.state == .available, let latest = Updater.shared.latest, let window else { return }
-        let alert = NSAlert()
-        alert.messageText = "Install Station \(latest.version) and relaunch?"
-        alert.informativeText = "You have \(Updater.shared.currentVersion). It takes a few seconds."
-        alert.addButton(withTitle: "Install and Relaunch")
-        alert.addButton(withTitle: "Release Notes")
-        alert.addButton(withTitle: "Later")
-        alert.beginSheetModal(for: window) { response in
-            MainActor.assumeIsolated {
-                if response == .alertFirstButtonReturn { Task { await Updater.shared.confirmedInstall() } }
-                if response == .alertSecondButtonReturn { NSWorkspace.shared.open(latest.pageURL) }
             }
         }
     }
@@ -1002,6 +935,7 @@ final class ReviewView: NSView, NSPopoverDelegate {
         let waiting = document.awaitingYou.count
         let count = max(configuredAgents.count, live.count)
 
+        var quiet = true // nothing happening: the button steps aside (Review → Connect an Agent… still reaches it)
         var color = count > 0 ? DiffStyle.addedAccent : .tertiaryLabelColor
         var label = count > 1 ? "Agents (\(count))" : "Agent"
         var pulsing = false
@@ -1011,33 +945,40 @@ final class ReviewView: NSView, NSPopoverDelegate {
         let running = runStates.filter { if case .running = $0.1 { return true } else { return false } }.map(\.0)
         let finished = runStates.compactMap { t, s -> (AgentRunner.Target, Bool)? in if case let .finished(_, ok) = s { return (t, ok) } else { return nil } }
         if !running.isEmpty {
+            quiet = false
             color = DiffStyle.accent; pulsing = true
             label = running.count == 1 ? "\(running[0].title) working…" : "\(running.count) agents working…"
             tip = running.map { "\($0.title) is working on your review" }.joined(separator: "\n")
         } else if !working.isEmpty {
+            quiet = false
             color = DiffStyle.accent; pulsing = true
             label = working.count == 1 ? "\(working[0]) working…" : "\(working.count) agents working…"
             tip = working.map { a in "\(a): \(claims.filter { $0.agent == a }.count) comment(s)" }.joined(separator: "\n")
         } else if waiting > 0 {
+            quiet = false
             color = .systemYellow
             label = waiting == 1 ? "1 reply for you" : "\(waiting) replies for you"
             tip = "An agent answered a comment instead of resolving it. Click to see."
         } else if !finished.isEmpty {
+            quiet = false
             let failed = finished.filter { !$0.1 }.map(\.0)
             color = failed.isEmpty ? DiffStyle.addedAccent : DiffStyle.deletedAccent
             label = failed.isEmpty ? (finished.count == 1 ? "Agent done" : "Agents done") : (failed.count == 1 ? "\(failed[0].title) failed" : "Agents failed")
             tip = finished.map { "\($0.0.title) \($0.1 ? "finished" : "failed")" }.joined(separator: "\n") + "\nClick for the log."
         }
         if let run = reviewerRun, run.state == .running { // a reviewer at work outranks the rest
+            quiet = false
             color = DiffStyle.accent; pulsing = true
             label = run.reviewer.name + " · " + (run.activity ?? "reviewing…")
             tip = "\(run.reviewer.name) is reviewing the whole change. Its findings land as threads for you to keep or dismiss."
         } else if let s = session {
             switch s.state {
             case .starting, .priming:
+                quiet = false
                 color = DiffStyle.accent; pulsing = true; label = "Claude priming…"
                 tip = "Claude is reading this review, so it's ready when you send a comment (⌘⇧↩)."
             case .busy:
+                quiet = false
                 color = DiffStyle.accent; pulsing = true; label = "Claude · " + (s.activity?.label ?? "working…")
                 tip = "Claude is on a comment in this review's session."
             case .ready where running.isEmpty && working.isEmpty && waiting == 0:
@@ -1051,6 +992,7 @@ final class ReviewView: NSView, NSPopoverDelegate {
         let pending = document.pendingCount
         let reviewTitle = pending > 0 ? "Finish review (\(pending))" : "Review changes"
         if reviewButton.title != reviewTitle { reviewButton.setText(reviewTitle); needsLayout = true }
+        if agentButton.isHidden != quiet { agentButton.isHidden = quiet; needsLayout = true }
         let key = "\(label)|\(color)|\(pulsing)"
         guard agentButton.identifier?.rawValue != key else { return }
         agentButton.identifier = NSUserInterfaceItemIdentifier(key)
@@ -1153,7 +1095,8 @@ final class ReviewView: NSView, NSPopoverDelegate {
         popover.behavior = .transient
         popover.contentViewController = AgentConnectViewController()
         popover.delegate = self
-        popover.show(relativeTo: agentButton.bounds, of: agentButton, preferredEdge: .maxY)
+        let anchor: NSView = agentButton.isHidden ? reviewButton : agentButton
+        popover.show(relativeTo: anchor.bounds, of: anchor, preferredEdge: .maxY)
     }
 
     /// Connecting/disconnecting happens in the popover: re-check when it closes.
