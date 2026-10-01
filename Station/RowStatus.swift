@@ -35,6 +35,16 @@ struct RowStatus: Equatable {
             break
         }
 
+        // A followed branch isn't a PR: there's nothing to review or merge, only its CI.
+        if pr.isBranch {
+            let failing = pr.failingChecks
+            if failing.count == 1 { add("\(failing[0].name) failing", .blocking) }
+            else if failing.count > 1 { add("\(failing.count) checks failing", .blocking) }
+            else if pr.checks.contains(where: { $0.state == .pending }) { add("Checks running", .waiting) }
+            else if !pr.checks.isEmpty { add("Checks passing", .good) }
+            return RowStatus(parts: facts, agent: nil)
+        }
+
         if needsYou { add("Agent needs you", .needsYou) }
         if pr.mergeState == .conflicting { add("Merge conflicts", .blocking) }
         if let q = pr.mergeQueue, q.isBlocked { add("Blocked in queue", .blocking) }
