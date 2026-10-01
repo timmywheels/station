@@ -115,7 +115,8 @@ struct AgentsView: View {
 
     var body: some View {
         let list = sessions
-        HStack(spacing: 0) {
+        // Drag the line between the list and the details to resize them.
+        HSplitView {
             VStack(spacing: 0) {
                 header(list)
                 if !board.installed { offer }
@@ -144,8 +145,7 @@ struct AgentsView: View {
                         .help("Sessions nobody typed into: `claude -p`, scripts, and Station's own review sessions")
                 }
             }
-            .frame(minWidth: 420, idealWidth: 520)
-            Divider()
+            .frame(minWidth: 320, idealWidth: 520)
             Group {
                 if let s = list.first(where: { $0.id == selection }) {
                     SessionDetail(session: s)
@@ -153,7 +153,7 @@ struct AgentsView: View {
                     Text("Select a session").foregroundStyle(.secondary).frame(maxWidth: .infinity, maxHeight: .infinity)
                 }
             }
-            .frame(minWidth: 360, idealWidth: 420, maxWidth: .infinity, maxHeight: .infinity)
+            .frame(minWidth: 300, idealWidth: 420, maxWidth: .infinity, maxHeight: .infinity)
         }
         .frame(minWidth: 800, minHeight: 440)
         .onAppear {
