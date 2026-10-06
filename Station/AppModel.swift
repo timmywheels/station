@@ -166,7 +166,7 @@ final class AppModel {
 
     /// Row ids in display order, skipping collapsed sections.
     var visibleRowIDs: [String] {
-        sections.flatMap { sec in isCollapsed(sec.id) ? [] : Stacks.layout(sec.prs).map(\.id) }
+        sections.flatMap { sec in isCollapsed(sec.id) ? [] : Stacks.layout(sec.prs, order: prefs.sortOrder).map(\.id) }
     }
     /// Collapse is suspended while a search or a status filter is active, so matches are never hidden.
     func isCollapsed(_ sectionID: String) -> Bool {
@@ -331,10 +331,11 @@ final class AppModel {
         return Filters.visible(out, ignore: prefs.ignoreRules).filter { hidden[$0.id] == nil }
     }
 
-    /// The Merged section: every merged PR in the window, red first, then newest merge first.
+    /// The Merged section: every merged PR in the window, red first, then newest merge first (or the chosen sort, by merge time).
     var mergedRows: [PullRequest] {
         let hidden = prefs.sources.hiddenPRs
         let visible = Filters.visible(merged, ignore: prefs.ignoreRules).filter { hidden[$0.id] == nil }
+        if prefs.sortOrder != .status { return Rollup.sorted(visible, by: prefs.sortOrder, date: { $0.mergedAt ?? $0.updatedAt }) }
         return visible.sorted {
             let a = $0.isUnresolvedMerge ? 0 : 1, b = $1.isUnresolvedMerge ? 0 : 1
             if a != b { return a < b }
@@ -357,7 +358,7 @@ final class AppModel {
                 return pinnedOnly ? isPinned : (!skipPinned || !isPinned)
             }
             picked.forEach { claimed.insert($0.id) }
-            return Rollup.sorted(picked)
+            return Rollup.sorted(picked, by: prefs.sortOrder)
         }
         var out: [Section] = []
         out.append(Section(id: "Pinned", title: "Pinned", prs: take(all, pinnedOnly: true)))

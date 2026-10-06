@@ -36,6 +36,19 @@ struct MenuBarView: View {
                 }
                 .buttonStyle(.plain).help("Search (⌘L)")
 
+                Menu {
+                    Picker("Sort by", selection: Binding(get: { model.prefs.sortOrder }, set: { model.prefs.sortOrder = $0 })) {
+                        ForEach(PRSortOrder.allCases, id: \.self) { Text($0.title).tag($0) }
+                    }
+                    .pickerStyle(.inline)
+                } label: {
+                    Image(systemName: "arrow.up.arrow.down")
+                        .foregroundStyle(model.prefs.sortOrder == .status ? Color.secondary : Color.accentColor)
+                        .frame(width: 22, height: 22).contentShape(Rectangle())
+                }
+                .menuStyle(.button).buttonStyle(.plain).menuIndicator(.hidden).fixedSize()
+                .help("Sort: \(model.prefs.sortOrder.title)")
+
                 Capsule().fill(.quaternary).frame(width: 36, height: 4)
                     .frame(maxWidth: .infinity, minHeight: 22)
                     .overlay(DragHandle())
@@ -207,7 +220,7 @@ struct MenuBarView: View {
             if !collapsed {
                 // Queue sections keep GitHub's order: position is the information. Stacks.layout
                 // regroups by state and recency, which would scramble exactly that.
-                let rows = stacked ? Stacks.layout(sec.prs) : sec.prs.map { StackRow(pr: $0, depth: 0, stackID: nil) }
+                let rows = stacked ? Stacks.layout(sec.prs, order: model.prefs.sortOrder) : sec.prs.map { StackRow(pr: $0, depth: 0, stackID: nil) }
                 ForEach(rows) { row in
                     PRRow(pr: row.pr, model: model, section: sec, depth: row.depth,
                           stack: row.stackID.map { Stacks.members(of: $0, in: rows) })

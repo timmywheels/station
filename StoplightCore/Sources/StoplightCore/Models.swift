@@ -267,6 +267,14 @@ public struct PullRequest: Codable, Sendable, Hashable, Identifiable {
                            review: review)
     }
 
+    /// Nothing in the way of merging: not a draft, nothing failing or running, approved (or no review
+    /// required), no conflicts, not behind, and not already in the merge queue.
+    public var isReadyToMerge: Bool {
+        status == .open && !isBranch && !isDraft && state != .failure && state != .pending
+            && (review == .approved || review == .none)
+            && mergeState != .conflicting && mergeState != .behind && mergeQueue == nil
+    }
+
     /// A merged PR is a live problem only when its own merge commit is red AND the base branch is still red.
     public var isUnresolvedMerge: Bool { status == .merged && state == .failure && baseState == .failure }
 

@@ -95,6 +95,7 @@ final class UserPrefs {
         static let mergedDays = "mergedDays"
         static let branchCommits = "branchCommits"
         static let sectionOrder = "sectionOrder"
+        static let sortOrder = "sortOrder"
         static let tourSeen = "tourSeen"
         static let rowActions = "rowActions"
         static let rowActionsSeen = "rowActionsSeen"
@@ -262,6 +263,8 @@ final class UserPrefs {
     var branchCommits: Int { didSet { defaults.set(branchCommits, forKey: Key.branchCommits) } }
     /// Section ids in the user's drag order (US-023). Ids not listed keep their default relative order after these.
     var sectionOrder: [String] { didSet { defaults.set(sectionOrder, forKey: Key.sectionOrder) } }
+    /// How the dropdown orders PRs inside each section. Local only.
+    var sortOrder: PRSortOrder { didSet { defaults.set(sortOrder.rawValue, forKey: Key.sortOrder) } }
     /// Popover section titles the user has collapsed. Local only.
     var collapsedSections: Set<String> { didSet { defaults.set(Array(collapsedSections).sorted(), forKey: Key.collapsed) } }
 
@@ -298,6 +301,7 @@ final class UserPrefs {
         collapsedSections = Set(defaults.stringArray(forKey: Key.collapsed) ?? ["Merged"])
         mergedDays = defaults.object(forKey: Key.mergedDays) == nil ? 1 : defaults.integer(forKey: Key.mergedDays)
         sectionOrder = defaults.stringArray(forKey: Key.sectionOrder) ?? []
+        sortOrder = defaults.string(forKey: Key.sortOrder).flatMap(PRSortOrder.init(rawValue:)) ?? .status
         branchCommits = defaults.object(forKey: Key.branchCommits) == nil ? 1 : max(1, min(10, defaults.integer(forKey: Key.branchCommits)))
         tourSeen = defaults.bool(forKey: Key.tourSeen)
         // Buttons added in a later version join an existing config once, so an upgrade never hides a new
