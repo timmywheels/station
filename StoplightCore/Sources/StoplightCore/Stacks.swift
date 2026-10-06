@@ -16,8 +16,9 @@ public struct StackRow: Identifiable, Sendable, Equatable {
 
 public enum Stacks {
     /// Groups PRs whose base branch is another visible PR's head branch (same repo).
-    /// Stacks are emitted bottom-up as contiguous runs. Groups are ordered worst-state first, then most recent.
-    public static func layout(_ prs: [PullRequest]) -> [StackRow] {
+    /// Stacks are emitted bottom-up as contiguous runs. With `.status`, groups are ordered worst-state first, then
+    /// most recent; with any other order they keep the order `prs` came in, already sorted that way.
+    public static func layout(_ prs: [PullRequest], order: PRSortOrder = .status) -> [StackRow] {
         var byHead: [String: PullRequest] = [:]
         for pr in prs where !pr.headRefName.isEmpty { byHead["\(pr.repo.lowercased())#\(pr.headRefName)"] = pr }
 
@@ -34,7 +35,7 @@ public enum Stacks {
         func subtree(_ pr: PullRequest, depth: Int, stackID: String?, visited: inout Set<String>) -> [StackRow] {
             guard visited.insert(pr.id).inserted else { return [] }
             var rows = [StackRow(pr: pr, depth: depth, stackID: stackID)]
-            for c in Rollup.sorted(children[pr.id] ?? []) {
+            for c in Rollup.sorted(children[pr.id] ?? [], by: order) {
                 rows += subtree(c, depth: depth + 1, stackID: stackID ?? pr.id, visited: &visited)
             }
             return rows
@@ -50,6 +51,7 @@ public enum Stacks {
         // Cycles (A based on B, B based on A) never reach `roots`; emit them flat so nothing disappears.
         for pr in prs where !visited.contains(pr.id) { groups.append(subtree(pr, depth: 0, stackID: nil, visited: &visited)) }
 
+        guard order == .status else { return groups.flatMap { $0 } }
         groups.sort { a, b in
             let (wa, wb) = (worst(a), worst(b))
             if wa != wb { return wa < wb }

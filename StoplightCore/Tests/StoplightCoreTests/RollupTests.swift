@@ -93,6 +93,27 @@ final class RollupTests: XCTestCase {
         PullRequest(id: id, repo: "o/r", number: 1, title: "t", url: URL(string: "https://github.com/o/r/pull/1")!,
                     isDraft: draft, updatedAt: updated, headSha: "abc", checks: checks)
     }
+    private func row(_ id: String, repo: String, state: CheckState, minutesAgo: Double) -> PullRequest {
+        PullRequest(id: id, repo: repo, number: 1, title: id, url: URL(string: "https://github.com/\(repo)/pull/1")!, isDraft: false,
+                    updatedAt: Date(timeIntervalSince1970: 1_000_000 - minutesAgo * 60), headSha: "s", checks: [check(state)])
+    }
+
+    func testSortOrders() {
+        let rows = [row("old-green", repo: "acme/web", state: .success, minutesAgo: 90),
+                    row("new-green", repo: "acme/api", state: .success, minutesAgo: 5),
+                    row("mid-red", repo: "acme/web", state: .failure, minutesAgo: 30),
+                    row("mid-yellow", repo: "acme/api", state: .pending, minutesAgo: 60)]
+        XCTAssertEqual(Rollup.sorted(rows, by: .status).map(\.id), ["mid-red", "mid-yellow", "new-green", "old-green"])
+        XCTAssertEqual(Rollup.sorted(rows, by: .updated).map(\.id), ["new-green", "mid-red", "mid-yellow", "old-green"])
+        XCTAssertEqual(Rollup.sorted(rows, by: .leastRecent).map(\.id), ["old-green", "mid-yellow", "mid-red", "new-green"])
+        XCTAssertEqual(Rollup.sorted(rows, by: .repo).map(\.id), ["mid-yellow", "new-green", "mid-red", "old-green"])
+    }
+
+    func testSortCanUseAnotherDate() {
+        let a = row("a", repo: "r/r", state: .success, minutesAgo: 1), b = row("b", repo: "r/r", state: .success, minutesAgo: 2)
+        let mergedAt = ["a": Date(timeIntervalSince1970: 1), "b": Date(timeIntervalSince1970: 2)]
+        XCTAssertEqual(Rollup.sorted([a, b], by: .updated, date: { mergedAt[$0.id]! }).map(\.id), ["b", "a"])
+    }
 }
 
 // MARK: - Stale check runs (US-039)
@@ -157,4 +178,5 @@ final class NewestPerCheckTests: XCTestCase {
         XCTAssertEqual(checks.count, 1)
         XCTAssertEqual(Rollup.state(for: checks), .success)
     }
+
 }

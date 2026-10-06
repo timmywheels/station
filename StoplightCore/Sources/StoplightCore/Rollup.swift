@@ -61,4 +61,38 @@ public enum Rollup {
         let rest = sorted(prs.filter { !pinned.contains($0.id) })
         return p + rest
     }
+
+    /// The dropdown's order within a section. `date` is what "updated" means for these rows: merge time for merged ones.
+    public static func sorted(_ prs: [PullRequest], by order: PRSortOrder,
+                              date: (PullRequest) -> Date = { $0.updatedAt }) -> [PullRequest] {
+        switch order {
+        case .status:
+            return sorted(prs)
+        case .updated:
+            return prs.sorted { date($0) != date($1) ? date($0) > date($1) : $0.id < $1.id }
+        case .leastRecent:
+            return prs.sorted { date($0) != date($1) ? date($0) < date($1) : $0.id < $1.id }
+        case .repo:
+            return prs.sorted {
+                let a = $0.repo.lowercased(), b = $1.repo.lowercased()
+                if a != b { return a < b }
+                if $0.state != $1.state { return $0.state < $1.state }
+                return date($0) > date($1)
+            }
+        }
+    }
+}
+
+/// How the dropdown orders the PRs inside each section. Sections keep their own order.
+public enum PRSortOrder: String, CaseIterable, Codable, Sendable {
+    case status, updated, leastRecent, repo
+
+    public var title: String {
+        switch self {
+        case .status: "Status"
+        case .updated: "Recently updated"
+        case .leastRecent: "Least recently updated"
+        case .repo: "Repository"
+        }
+    }
 }

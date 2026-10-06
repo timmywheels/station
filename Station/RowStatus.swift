@@ -52,8 +52,7 @@ struct RowStatus: Equatable {
         if pr.mergeState == .behind { add("arrow.down.to.line", "Behind \(pr.baseRefName)", .info) }
         if !needsYou, reported == "working" || agent?.state == .running { add("cpu", "An agent is working on it", .info) }
         // Nothing in the way: say so once, with the seal.
-        if facts.isEmpty, !pr.isDraft, pr.state != .failure, pr.state != .pending,
-           pr.review == .approved || pr.review == .none {
+        if facts.isEmpty, pr.isReadyToMerge {
             add("checkmark.seal.fill", pr.review == .approved ? "Approved and nothing failing: ready to merge" : "Nothing failing: ready to merge", .good)
         }
 

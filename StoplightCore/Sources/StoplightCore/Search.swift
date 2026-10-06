@@ -11,13 +11,21 @@ public struct SearchQuery: Equatable, Sendable {
     public var numbers: [Int] = []
     /// A pasted PR link (or owner/repo#123): the PR it names, which may not be in any list.
     public var pullRequest: PRRef?
+    /// `-term` (`-is:draft`, `-repo:web`, `-wip`): rows matching any of these are hidden.
+    public var excluded: [SearchQuery] = []
 
     public static let prefixes = ["author:", "repo:", "branch:", "is:"]
-    public static let flagValues = ["red", "yellow", "green", "draft", "merged", "queued", "mine", "branch"]
+    public static let flagValues = ["red", "yellow", "green", "ready", "approved", "changes", "draft", "mine",
+                                    "review", "conflicts", "behind", "merged", "queued", "branch"]
 
     public init(_ text: String) {
         for raw in text.split(whereSeparator: \.isWhitespace) {
             let t = String(raw).lowercased()
+            if t.hasPrefix("-") { // a lone "-" is the start of one still being typed
+                let term = SearchQuery(String(raw.dropFirst()))
+                if !term.isEmpty { excluded.append(term) }
+                continue
+            }
             // A link someone sent you: narrow to that repo and number.
             if let ref = URL(string: String(raw)).flatMap(PRRef.init(url:)) ?? (t.contains("/") ? PRRef(key: String(raw)) : nil) {
                 pullRequest = pullRequest ?? ref
@@ -33,7 +41,9 @@ public struct SearchQuery: Equatable, Sendable {
         }
     }
 
-    public var isEmpty: Bool { words.isEmpty && authors.isEmpty && repos.isEmpty && branches.isEmpty && flags.isEmpty && numbers.isEmpty }
+    public var isEmpty: Bool {
+        words.isEmpty && authors.isEmpty && repos.isEmpty && branches.isEmpty && flags.isEmpty && numbers.isEmpty && excluded.isEmpty
+    }
 
     /// What the app knows that the PR record doesn't: display names, labels, nicknames, who "mine" is.
     public struct Context: Sendable {
@@ -46,8 +56,13 @@ public struct SearchQuery: Equatable, Sendable {
         }
     }
 
-    public func matches(_ pr: PullRequest, _ ctx: Context) -> Bool {
+    public func matches(_ pr: PullRequest, _ ctx: Context) -> Bool { matches(pr, ctx, unknownFlags: true) }
+
+    /// `unknownFlags`: what an unrecognised `is:` counts as. Ignored (true) when narrowing, so a typo doesn't
+    /// hide everything; no match (false) inside an exclusion, so `-is:typo` doesn't hide everything either.
+    private func matches(_ pr: PullRequest, _ ctx: Context, unknownFlags: Bool) -> Bool {
         if isEmpty { return true }
+        for term in excluded where term.matches(pr, ctx, unknownFlags: false) { return false }
         let title = (pr.title + " " + (ctx.nickname(pr.id) ?? "")).lowercased()
         for w in words where !title.contains(w) && !pr.repo.lowercased().contains(w) && !pr.headRefName.lowercased().contains(w) { return false }
         if !numbers.isEmpty && !numbers.contains(pr.number) { return false }
@@ -66,7 +81,13 @@ public struct SearchQuery: Equatable, Sendable {
             case "queued", "queue": pr.mergeQueue != nil
             case "mine", "me": ctx.myLogin.map { $0.caseInsensitiveCompare(pr.author) == .orderedSame } ?? false
             case "branch": pr.isBranch
-            default: true   // unknown flag: don't hide everything, just ignore it
+            case "ready": pr.isReadyToMerge
+            case "approved": pr.review == .approved
+            case "changes", "changes-requested": pr.review == .changesRequested
+            case "review", "review-required", "needs-review": pr.review == .reviewRequired
+            case "conflicts", "conflict", "conflicting": pr.mergeState == .conflicting
+            case "behind": pr.mergeState == .behind
+            default: unknownFlags
             }
             if !ok { return false }
         }

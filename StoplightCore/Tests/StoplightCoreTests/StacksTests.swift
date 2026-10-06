@@ -37,6 +37,14 @@ final class StacksTests: XCTestCase {
         XCTAssertEqual(Stacks.layout([green, bottom, topRed]).map(\.id), ["b1", "t2", "g1"])
     }
 
+    func testOtherOrdersKeepTheSectionsOrderAndKeepStacksTogether() {
+        let green = pr("g1", head: "solo", base: "main", repo: "a/a")
+        let bottom = pr("b1", head: "feat", base: "main", repo: "z/z", state: .failure)
+        let top = pr("t2", head: "feat-2", base: "feat", repo: "z/z")
+        XCTAssertEqual(Stacks.layout([green, top, bottom], order: .repo).map(\.id), ["g1", "b1", "t2"])
+        XCTAssertEqual(Stacks.layout([green, top, bottom]).map(\.id), ["b1", "t2", "g1"])
+    }
+
     func testCycleStillEmitsEveryPR() {
         let a = pr("a1", head: "x", base: "y")
         let b = pr("b2", head: "y", base: "x")

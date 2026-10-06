@@ -47,7 +47,7 @@ struct PullRequestsPane: View {
                                                       model.sourcesChanged()
                                                   })
                                     if !collapsed {
-                                        let rows = Stacks.layout(sec.prs)
+                                        let rows = Stacks.layout(sec.prs, order: model.prefs.sortOrder)
                                         ForEach(rows) { row in
                                             PRRow(pr: row.pr, model: model, section: sec, depth: row.depth,
                                                   stack: row.stackID.map { Stacks.members(of: $0, in: rows) }, multiSelect: true)

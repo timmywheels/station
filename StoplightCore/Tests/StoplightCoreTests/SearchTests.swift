@@ -46,11 +46,50 @@ final class SearchTests: XCTestCase {
         XCTAssertTrue(SearchQuery("is:bogus").matches(red, ctx))  // unknown flags are ignored, not fatal
     }
 
+    private func open(_ id: String, state: CheckState = .success, review: ReviewDecision = .none, merge: MergeState = .clean,
+                      draft: Bool = false, queue: MergeQueueInfo? = nil) -> PullRequest {
+        PullRequest(id: id, repo: "acme/api", number: 1, title: id, url: URL(string: "https://github.com/acme/api/pull/1")!,
+                    isDraft: draft, updatedAt: .now, headSha: "s", checks: [CheckResult(name: "ci", state: state, url: nil)],
+                    mergeQueue: queue, mergeState: merge, review: review)
+    }
+
+    func testReviewAndMergeFlags() {
+        XCTAssertTrue(SearchQuery("is:approved").matches(open("a", review: .approved), ctx))
+        XCTAssertFalse(SearchQuery("is:approved").matches(open("b", review: .reviewRequired), ctx))
+        XCTAssertTrue(SearchQuery("is:changes").matches(open("c", review: .changesRequested), ctx))
+        XCTAssertTrue(SearchQuery("is:review").matches(open("r", review: .reviewRequired), ctx))
+        XCTAssertTrue(SearchQuery("is:conflicts").matches(open("x", merge: .conflicting), ctx))
+        XCTAssertTrue(SearchQuery("is:behind").matches(open("y", merge: .behind), ctx))
+    }
+
+    func testReadyMeansNothingInTheWayOfMerging() {
+        XCTAssertTrue(SearchQuery("is:ready").matches(open("ok", review: .approved), ctx))
+        XCTAssertTrue(SearchQuery("is:ready").matches(open("no-review-needed"), ctx))
+        for blocked in [open("running", state: .pending, review: .approved), open("red", state: .failure, review: .approved),
+                        open("unreviewed", review: .reviewRequired), open("changes", review: .changesRequested),
+                        open("conflicts", review: .approved, merge: .conflicting), open("behind", review: .approved, merge: .behind),
+                        open("draft", review: .approved, draft: true),
+                        open("queued", review: .approved, queue: MergeQueueInfo(position: 1, state: "QUEUED"))] {
+            XCTAssertFalse(SearchQuery("is:ready").matches(blocked, ctx), blocked.id)
+        }
+    }
+
+    func testMinusHidesMatches() {
+        let draft = pr("d", title: "Spike: caching", draft: true), real = pr("r", title: "Fix deploy", repo: "acme/web")
+        XCTAssertFalse(SearchQuery("-is:draft").matches(draft, ctx))
+        XCTAssertTrue(SearchQuery("-is:draft").matches(real, ctx))
+        XCTAssertFalse(SearchQuery("-repo:web").matches(real, ctx))
+        XCTAssertFalse(SearchQuery("-spike").matches(draft, ctx))
+        XCTAssertTrue(SearchQuery("deploy -is:draft").matches(real, ctx))
+        XCTAssertTrue(SearchQuery("-is:typo").matches(draft, ctx))  // an unknown flag hides nothing
+        XCTAssertTrue(SearchQuery("-").matches(draft, ctx))
+    }
+
     func testSuggestionsAndCompletion() {
         let prs = [pr("d", title: "t", author: "dholliday3"), pr("b", title: "t", repo: "acme/web", author: "bob")]
         XCTAssertEqual(SearchQuery.suggestions(for: "", prs: prs, ctx).map(\.insert), SearchQuery.prefixes)
         XCTAssertEqual(SearchQuery.suggestions(for: "author:dan", prs: prs, ctx).map(\.insert), ["author:dholliday3"])
-        XCTAssertEqual(SearchQuery.suggestions(for: "is:re", prs: prs, ctx).map(\.label), ["red", "green"])
+        XCTAssertEqual(SearchQuery.suggestions(for: "is:re", prs: prs, ctx).map(\.label), ["red", "green", "ready", "review"])
         XCTAssertEqual(Set(SearchQuery.suggestions(for: "repo:", prs: prs, ctx).map(\.label)), ["api", "web"])
         XCTAssertEqual(SearchQuery.complete("is:red auth", with: "author:"), "is:red author:")
         XCTAssertEqual(SearchQuery.complete("author:dan", with: "author:dholliday3"), "author:dholliday3 ")
